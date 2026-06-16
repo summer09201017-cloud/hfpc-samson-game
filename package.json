@@ -1,0 +1,19 @@
+{
+  "name": "samson-lion-game",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "參孫打獅子 — 聖經互動遊戲 · 士師記 14(單一動作關)",
+  "scripts": {
+    "dev": "vite",
+    "build": "node scripts/bundle-static.mjs",
+    "icons": "node scripts/gen-icons.mjs",
+    "serve:dist": "node scripts/serve-static.mjs",
+    "test": "node scripts/smoke-test.mjs",
+    "test:offline": "node scripts/smoke-test.mjs --offline"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5",
+    "vite": "^6.0.7"
+  }
+}

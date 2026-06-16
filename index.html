@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <title>參孫打獅子 · 士師記 14</title>
+
+    <!-- PWA / 手機安裝 -->
+    <meta name="theme-color" content="#7a4a22" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180x180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="參孫打獅子" />
+
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div id="stage">
+      <canvas id="game"></canvas>
+      <button id="muteBtn" class="icon-btn mute-btn" aria-label="靜音" title="靜音 (M)">🔊</button>
+      <button id="pauseBtn" class="icon-btn pause-btn" aria-label="暫停" title="暫停 (P)">⏸</button>
+      <div id="overlay" class="overlay">
+        <div class="card" id="card"></div>
+      </div>
+    </div>
+    <!-- 手機直向時蓋住畫面,提示轉成橫向(只在觸控裝置的直向顯示) -->
+    <div id="rotate" class="rotate-hint" aria-hidden="true">
+      <div class="rotate-emoji">🔄</div>
+      <p>請把手機轉成<b>橫向</b>來玩<br /><span>轉成橫向會自動全螢幕</span></p>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

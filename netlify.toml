@@ -1,0 +1,17 @@
+# Netlify 部署設定(與約拿 / 大廳同套)
+# build 只把靜態檔逐檔複製到 site/(不打包,避開這台 Node 24 遞迴 cpSync 地雷),publish 指向 site/。
+[build]
+  command = "npm run build"
+  publish = "site"
+
+# .webmanifest 要用正確 MIME,PWA 安裝才穩(Netlify 預設會給 octet-stream)
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json; charset=utf-8"
+
+# Service Worker 不要被快取,改版才能即時送到已安裝的裝置
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"

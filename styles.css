@@ -1,0 +1,243 @@
+:root {
+  --ink: #2e2418;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: #2a1606;
+  font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+}
+
+#game {
+  position: absolute;
+  inset: 0;
+  display: block;
+  touch-action: none;
+}
+
+/* ---- 覆蓋層(標題 / 過關 / 失敗) ---- */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 16, 6, 0.6);
+  backdrop-filter: blur(3px);
+  padding: 20px;
+}
+.overlay.show {
+  display: flex;
+}
+
+.card {
+  width: min(580px, 94vw);
+  max-height: 92vh;
+  overflow: auto;
+  background: #fbf7ee;
+  border-radius: 18px;
+  padding: 28px 30px 26px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  color: var(--ink);
+}
+
+.kicker {
+  font-size: 14px;
+  letter-spacing: 0.18em;
+  color: #c08a2a;
+  font-weight: 700;
+}
+.kicker.win {
+  color: #2f9e44;
+}
+.kicker.lose {
+  color: #c94b4b;
+}
+
+.card h1 {
+  font-size: 34px;
+  margin: 8px 0 2px;
+}
+.card h2 {
+  font-size: 24px;
+  margin: 10px 0 6px;
+  line-height: 1.35;
+}
+.sub {
+  color: #7a6a55;
+  margin: 0 0 14px;
+}
+.body {
+  color: #4a3c2c;
+  line-height: 1.7;
+  text-align: left;
+  margin: 6px 2px 16px;
+}
+
+.verse {
+  text-align: left;
+  background: #f1e7cf;
+  border-left: 4px solid #c8a35a;
+  padding: 12px 14px;
+  border-radius: 8px;
+  line-height: 1.85;
+  font-size: 15px;
+  color: #5a4a2a;
+  margin: 12px 0;
+}
+.verse .ref {
+  display: block;
+  font-weight: 700;
+  color: #9c7320;
+  margin-bottom: 4px;
+}
+
+.score {
+  font-weight: 700;
+  color: #b8860b;
+  font-size: 18px;
+  margin: 8px 0 14px;
+}
+
+.btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  background: #c0612a;
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+  padding: 13px 22px;
+  border-radius: 12px;
+  font-family: inherit;
+  box-shadow: 0 6px 0 #8f441c;
+  transition: transform 0.05s, box-shadow 0.05s;
+}
+.btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #8f441c;
+}
+.btn.ghost {
+  background: #e7dcc4;
+  color: #6b5a32;
+  box-shadow: 0 6px 0 #c9bda0;
+}
+.btn.ghost:active {
+  box-shadow: 0 2px 0 #c9bda0;
+}
+.btn:disabled {
+  background: #cfc7b5;
+  color: #8a8270;
+  box-shadow: 0 6px 0 #b3ab98;
+  cursor: not-allowed;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.hint {
+  color: #8a7a64;
+  font-size: 13px;
+  margin-top: 14px;
+  line-height: 1.7;
+}
+
+/* 右上角圓形圖示按鈕(暫停 / 靜音) */
+.icon-btn {
+  position: absolute;
+  top: 10px;
+  z-index: 5;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: rgba(30, 16, 6, 0.5);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.05s, background 0.15s;
+}
+.icon-btn:hover {
+  background: rgba(30, 16, 6, 0.7);
+}
+.icon-btn:active {
+  transform: scale(0.92);
+}
+
+/* 靜音鈕:永遠顯示,在暫停鈕左邊 */
+.mute-btn {
+  right: 64px;
+  display: flex;
+}
+/* 暫停鈕:只在遊戲進行中顯示 */
+.pause-btn {
+  right: 12px;
+  display: none;
+}
+.pause-btn.show {
+  display: flex;
+}
+
+/* ---- 手機直向:提示轉成橫向(只在觸控裝置的直向時蓋住畫面)---- */
+.rotate-hint {
+  display: none;
+}
+@media (orientation: portrait) and (pointer: coarse) {
+  .rotate-hint {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: #2a1606;
+    color: #ffe9cf;
+    text-align: center;
+    padding: 24px;
+    font-size: 21px;
+    line-height: 1.7;
+  }
+  .rotate-emoji {
+    font-size: 72px;
+    animation: rotateHint 1.8s ease-in-out infinite;
+  }
+  .rotate-hint span {
+    color: #d4a87f;
+    font-size: 15px;
+  }
+}
+@keyframes rotateHint {
+  0%,
+  100% {
+    transform: rotate(-12deg);
+  }
+  50% {
+    transform: rotate(78deg);
+  }
+}

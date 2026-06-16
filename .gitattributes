@@ -1,0 +1,4 @@
+# Windows batch files must stay CRLF, or cmd mis-parses goto/labels and the
+# script exits instantly when double-clicked.
+*.bat text eol=crlf
+*.cmd text eol=crlf

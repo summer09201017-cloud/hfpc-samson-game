@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3cf8f"/>
+      <stop offset="1" stop-color="#e6a85a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="104" fill="url(#sky)"/>
+  <!-- 鬃毛(放射) -->
+  <g fill="#7a4a1c">
+    <circle cx="256" cy="262" r="150"/>
+  </g>
+  <g stroke="#683f17" stroke-width="22" stroke-linecap="round">
+    <line x1="256" y1="262" x2="256" y2="86"/>
+    <line x1="256" y1="262" x2="256" y2="438"/>
+    <line x1="256" y1="262" x2="80" y2="262"/>
+    <line x1="256" y1="262" x2="432" y2="262"/>
+    <line x1="256" y1="262" x2="132" y2="138"/>
+    <line x1="256" y1="262" x2="380" y2="138"/>
+    <line x1="256" y1="262" x2="132" y2="386"/>
+    <line x1="256" y1="262" x2="380" y2="386"/>
+  </g>
+  <!-- 臉 -->
+  <circle cx="256" cy="270" r="112" fill="#c98a3a"/>
+  <ellipse cx="256" cy="312" rx="58" ry="46" fill="#a8702a"/>
+  <!-- 眼 -->
+  <circle cx="214" cy="250" r="14" fill="#2a160a"/>
+  <circle cx="298" cy="250" r="14" fill="#2a160a"/>
+  <!-- 鼻 -->
+  <path d="M236 296 L276 296 L256 318 Z" fill="#2a160a"/>
+  <!-- 嘴(吼) -->
+  <ellipse cx="256" cy="346" rx="26" ry="20" fill="#4a1810"/>
+  <path d="M236 330 L246 352 L228 350 Z" fill="#fff"/>
+  <path d="M276 330 L266 352 L284 350 Z" fill="#fff"/>
+</svg>
