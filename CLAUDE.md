@@ -3,6 +3,19 @@
 單一動作關的聖經小遊戲:**參孫打獅子**(士師記 14:5-6)。純 vanilla ES modules + Canvas,
 零執行期相依、Web Audio 合成音效、可離線(PWA)。架構沿用「約拿闖關」引擎(arcade-game-kit)。
 
+## 現況(2026-06-17)— 已完成 vs 待做
+
+**✅ 已完成、已上線**
+- 完整單一動作關(俯視角競技場走位 boss 戰),`npm test` / `npm run test:offline` 全綠。
+- **已部署**:https://hfpc-samson-game.netlify.app(首頁/入口JS/經文/SW/manifest 皆 200 驗證)。
+- **GitHub**:`summer09201017-cloud/hfpc-samson-game`(public)。
+- **已進大廳**:`hfpc-bible-games` 戰爭闖關合輯第 6 關,卡片已點亮(PR #6,待 merge 進 main 才在線上正式大廳亮)。
+- 文件已對齊實作(本檔、README、記憶);telegraph 紅線追蹤 + 撲出前 0.2s 鎖定(`LION.aimLockLead`)。
+
+**🔜 真正待做** → 細節與優先序見 **`roadmap.md`**(按 CP 值 × 開發時間排序)。一句話:核心已完整可上課;待做都是「加值」,非必要。
+
+**交接**:另一台 PC 接手請先讀 `讀我-HANDOFF.txt`。
+
 ## 玩法核心(俯視角競技場 boss 戰)
 
 俯視角競技場(亭拿葡萄園的一塊地,`ARENA`)。參孫在場內自由走位,對抗在場上移動的少壯獅子。獅子節奏:
@@ -52,6 +65,8 @@ renderer 量 `canvas.parentElement` 等比縮放置中。
 - **`.bat` 純 ASCII + CRLF**:中文會亂碼、LF 會讓 `goto` 解析失敗閃退。
 - **localhost 自動 unregister SW**(`main.js`):否則「快取優先」會餵舊檔,改了沒反應。只有正式環境才註冊。
 - 新增 `src/` 模組時,記得加進 `public/sw.js` 的 `CORE` 預快取清單(`npm run test:offline` 會檢查)。
+- **改玩法 = 同一個 commit 內同步更新文件**:本檔「玩法核心」、`README.md` 操作表、`roadmap.md`、以及自動記憶。本專案曾發生文件描述「對峙固定站位+翻滾 i-frames」但實作早已是「俯視角走位、無翻滾」,害老師會教錯——避免再脫節。
+- **上架/部署流程**走 skill `ship-game-online`(git→GitHub→Netlify→curl 驗證→點亮大廳卡);大廳卡片走 skill `add-to-collection`。`site/` 不入庫,Netlify 端 `npm run build` 重建。
 
 ## 指令
 

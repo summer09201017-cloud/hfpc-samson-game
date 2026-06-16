@@ -1,0 +1,93 @@
+============================================================
+參孫打獅子 — 交接說明(讀我-HANDOFF.txt)
+更新:2026-06-17  ·  給「另一台 PC / 另一個 AI」接手用
+============================================================
+
+這是什麼
+--------
+單一動作關的聖經小遊戲:參孫打獅子(士師記 14:5-6)。
+純 vanilla ES modules + Canvas,零執行期相依、Web Audio 合成音效、可離線(PWA)。
+架構沿用「約拿闖關」引擎。俯視角競技場 boss 戰:走位閃避 + 趁破綻反擊,6 下撕裂收尾。
+
+★ 神學重點:聖經不說參孫多強壯,而說「耶和華的靈大大感動他」——力量出於神。
+  不要把它改成「比力氣 / 練等變強」;不要加倚靠值能量條(使用者已明確決定不做)。
+
+
+現在到哪了(已完成、已上線)
+----------------------------
+[完成] 核心關卡完整可玩;npm test / npm run test:offline 全綠。
+[上線] 遊戲本體:https://hfpc-samson-game.netlify.app  (資產 200 驗證過)
+[上線] GitHub:  https://github.com/summer09201017-cloud/hfpc-samson-game  (public, 分支 main)
+[進行] 大廳:    收進「聖經遊戲大廳 hfpc-bible-games」的『⚔️ 戰爭闖關合輯』第 6 關。
+                卡片已點亮,但改動在功能分支 feat/jehoshaphat-to-paul,已開 PR #6
+                (https://github.com/summer09201017-cloud/hfpc-bible-games/pull/6)。
+                ⚠ 要 merge 進 main,Netlify 才會部署正式大廳、卡片才在線上亮。
+
+最近一次改動(2026-06-17):
+  - telegraph 期間紅線「持續追蹤玩家」,撲出前 0.2 秒(LION.aimLockLead)鎖定方向、
+    紅線由虛線轉亮實線當公平閃避訊號。改了 lion.js / config.js / renderer.js。
+  - 修正文件:之前 CLAUDE.md/README 還寫舊的「對峙固定站位+翻滾 i-frames」,實作
+    其實是「俯視角走位、沒有翻滾」。已全部對齊。改玩法務必同步改文件(見 CLAUDE.md 鐵則)。
+
+
+怎麼跑 / 測 / 建置(在這個資料夾)
+---------------------------------
+  npm install            第一次(裝 vite + sharp)
+  npm run dev            開發,預設 http://localhost:5273/
+  npm test               煙霧測試:文案 + 語法 + 狀態機/嵌入契約
+  npm run test:offline   再加 build → PWA 離線就緒檢查
+  npm run build          產生 site/(自寫 bundle,避開 Node 24 的 vite build 地雷)
+
+本機地雷(務必遵守,詳見 CLAUDE.md):
+  - 不要用 vite build(這台 Node 24 遞迴 cpSync 會無聲被殺);build 走 scripts/bundle-static.mjs。
+  - .bat 一律純 ASCII + CRLF。
+  - localhost 會自動 unregister Service Worker(改了才看得到);正式環境才註冊。
+  - 新增 src/ 模組要加進 public/sw.js 的 CORE 清單(test:offline 會檢查)。
+
+
+檔案在哪(一檔一責)
+--------------------
+  src/game.js       主迴圈 + 狀態機 + 戰鬥裁判 + 嵌入契約
+  src/config.js   ★ 所有可調數值(調手感只動這裡:PHASES / maxHp / maxHearts / aimLockLead)
+  src/scripture.js★ 經文與文案(和合本;改文案只動這裡)
+  src/samson.js     參孫走位 + 反擊判定窗
+  src/lion.js       獅子 AI 狀態機(含 _aimAt 紅線追蹤)
+  src/renderer.js   所有 Canvas 繪製(只讀狀態)
+  src/input.js      原始輸入(移動向量 + 攻擊邊緣 + 觸控)
+  src/ui.js         DOM 覆蓋層(標題/勝利/失敗/暫停/彩蛋)
+  src/audio.js      Web Audio 即時合成音效 + 背景音樂
+  CLAUDE.md         開發筆記(含「現況」「玩法核心」「本機地雷」)
+  roadmap.md        ★ 下一步要做什麼(已完成 vs 待做,按 CP 值排序)
+  讀我-HANDOFF.txt  本檔
+
+
+下一步做什麼
+------------
+打開 roadmap.md。一句話:核心已完整可上課,待做都是「加值」。
+建議的「快贏」前三名(高 CP 值、半天內):
+  1. 難度選單(易/中/難)→ 對應一組 config 值。主日學跨齡最實用。
+  2. 過關星級評價(1–3★,依剩餘心數+combo)。
+  3. 勝利經文語音朗讀(Web Speech API,還不識字的孩子也能領受)。
+
+
+跨專案 Skills(這次新做的)
+---------------------------
+這次做了兩個可重用的跨專案 skill,副本放在 handoff/skills/(隨 repo 帶過來):
+  - add-to-collection  把一關加進大廳合輯卡片
+  - ship-game-online   單機遊戲一條龍上架(git→GitHub→Netlify→驗證→點亮卡)
+
+★ Skill 真正生效在「使用者層」~/.claude/skills/,不會跟著 repo 走。
+  另一台 PC 要用,先把 handoff/skills/ 裡那兩個資料夾複製到
+  C:\Users\<你>\.claude\skills\ 對應路徑(說明見 handoff/skills/README.md)。
+
+
+關聯專案
+--------
+  約拿闖關  hfpc-jonah-game      (引擎範本,vanilla)
+  保羅大富翁 hfpc-paul-game       (嵌入式桌遊主框,React+Vite;許多動作關住這裡 ?demo=)
+  總入口大廳 hfpc-bible-games     (只帶路、不放遊戲;合輯清單在 src/data.js)
+
+============================================================
+榮耀歸神。願孩子們記得:面對比自己更大的「獅子」,
+真正的得勝不在於我們多有本事,而在於那加給我們力量的主。
+============================================================
