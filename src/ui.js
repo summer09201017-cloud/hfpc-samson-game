@@ -112,11 +112,30 @@ export class UI {
     `)
   }
 
-  showLose(L) {
+  // info.corrupt:第三次死亡時改顯示「心智被侵蝕」的劇情文案
+  showLose(L, info = {}) {
+    if (info.corrupt && L.corrupt) {
+      this.show(`
+        <div class="kicker lose">${L.corrupt.head}</div>
+        <p class="body" style="text-align:center">${L.corrupt.body.replace(/\n/g, '<br>')}</p>
+        <button class="btn" data-act="restart">↻ 再次面對死神</button>
+      `)
+      return
+    }
     this.show(`
       <div class="kicker lose">${L.lose.head}</div>
       <p class="body" style="text-align:center">${L.lose.body}</p>
       <button class="btn" data-act="restart">↻ 再試一次</button>
+    `)
+  }
+
+  // 壞結局(地獄模式中再次死亡):黑暗奪心,但仍指向基督的盼望
+  showBadEnding(L) {
+    const b = L.badEnd || L.lose
+    this.show(`
+      <div class="kicker lose">💀 ${b.head}</div>
+      <p class="body" style="text-align:center">${b.body.replace(/\n/g, '<br>')}</p>
+      <button class="btn" data-act="restart">↻ 倚靠主,重新開始</button>
     `)
   }
 

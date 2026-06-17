@@ -24,7 +24,7 @@ export const SAMSON = {
 // 少壯獅子(boss)
 export const LION = {
   r: 34, // 身體半徑
-  maxHp: 20, // 有效反擊 20 下 → 觸發「撕裂」收尾
+  maxHp: 30, // 有效反擊 30 下 → 觸發「撕裂」收尾
   contactR: 56, // 衝撞命中參孫的距離(中心距);只有「衝刺」會造成傷害
   chargeDist: 540, // 一次衝刺的最大距離(會直直衝過去,要側身閃開)
   aimLockLead: 0.2, // 撲出前這麼多秒停止追蹤、把紅線方向定住(給玩家公平的閃避窗;調大=更好閃)
@@ -45,25 +45,72 @@ export const LION = {
   clawStrike: 0.28, // 斬擊揮下的持續時間(視覺 + 傷害判定窗)
   clawGap: 2.5, // 兩次爪擊之間的間隔(揮完等多久再預警下一次)
   clawHalfWidth: 46, // 斬擊線的半寬(玩家到線的垂直距 < clawHalfWidth + 玩家半徑 即受傷)
+
+  // 最後狂暴(血量 <= enrageHpThreshold):衝刺循環 + 捕獸夾/爪擊的「頻率與移動速度」全部加快。
+  //   只加快節奏與移動;預警窗(charge telegraph 除外、claw/fang 的警示)保留,對玩家仍公平。
+  enrageHpThreshold: 3, // 血量 <= 此值 → 進入狂暴
+  enrageSpeedup: 1.3, // 狂暴加速倍率(時長 ÷ 此值、速度 × 此值)
 }
 
 // 分階段(血量越低越兇);index 0/1/2 = phase 1/2/3
 //   想更簡單 → 調長 telegraph / recovery、調慢 approach / charge;想更難 → 反向。
 export const PHASES = [
-  // phase1(hp 14–20):蓄力久、好預判、破綻長
+  // phase1(hp 21–30):蓄力久、好預判、破綻長
   { telegraph: 0.95, recovery: 1.45, approach: 110, charge: 600, lockRange: 320, roar: false },
-  // phase2(hp 7–13):快一點、破綻略短
+  // phase2(hp 11–20):快一點、破綻略短
   { telegraph: 0.7, recovery: 1.1, approach: 150, charge: 690, lockRange: 340, roar: true },
-  // phase3(hp 1–6):最兇、破綻短(仍可從容反擊)
+  // phase3(hp 1–10):最兇、破綻短(仍可從容反擊)
   { telegraph: 0.54, recovery: 0.84, approach: 188, charge: 780, lockRange: 360, roar: true },
 ]
 
-// 血量 → phase 索引(0/1/2)。門檻按 maxHp=20 等比分成約三等分(越低越兇)。
+// 血量 → phase 索引(0/1/2)。門檻按 maxHp=30 等比分成約三等分(越低越兇)。
 //   ⚠ 若改 LION.maxHp,記得同步調這裡的門檻與上面 PHASES 註解。
 export function phaseOf(hp) {
-  return hp > 13 ? 0 : hp > 6 ? 1 : 2
+  return hp > 20 ? 0 : hp > 10 ? 1 : 2
+}
+
+// 蜂窩補血道具(呼應士 14:8-9「從死獅之內取蜜」):場上不定時出現,吃到補血。
+export const HONEY = {
+  spawnMin: 6, // 兩個蜂窩之間最短間隔(秒)
+  spawnMax: 11, // 最長間隔(秒)→ 介於兩者之間隨機 = 不定時出現
+  life: 8, // 在場上停留幾秒沒被吃就消失(消失前會閃爍)
+  r: 22, // 拾取半徑(玩家中心距 < r + 玩家半徑 即吃到)
+  heal: 1, // 吃到補幾滴血
+  maxOnField: 2, // 場上最多同時幾個
+  safeR: 80, // 生成時避開玩家這麼近的範圍
+}
+
+// 石頭道具:場上不定時出現,玩家碰到 → 石頭自動朝獅子扔出 → 砸中對獅子造成傷害。
+export const ROCK = {
+  spawnMin: 7, // 兩顆石頭之間最短間隔(秒)
+  spawnMax: 13, // 最長間隔(秒)→ 不定時出現
+  life: 9, // 地上的石頭沒被撿就在幾秒後消失(消失前閃爍)
+  r: 18, // 拾取半徑(玩家)/ 命中半徑(獅子)
+  speed: 640, // 扔出後飛向獅子的速度 (px/s)
+  damage: 1, // 砸中對獅子扣幾滴血
+  maxOnField: 2, // 場上最多同時幾顆「地上的」石頭
+}
+
+// 神蹟降臨:每隔 interval 秒,天降閃電打在獅子身上(神的幫助,不是玩家的本事),扣 damage 滴血。
+export const MIRACLE = {
+  interval: 30, // 每幾秒觸發一次
+  deathInterval: 20, // 死神/地獄模式時改用此間隔(神在最黑暗時更頻繁地伸手)
+  damage: 3, // 閃電對獅子扣幾滴血
+}
+
+// 墮落系統:每死一次畫面變暗一點;死滿 deathModeAt 次 → 參孫心智被魔鬼侵蝕、獅子化為死神、難度大增。
+//   士師記的影子:一再失敗、心被蒙蔽,黑暗就趁虛而入(參孫最終的下場,士 16)。
+//   ※ 死亡數在「回標題」或「得勝」時清零;同一輪不斷重試才會累積。
+export const CORRUPTION = {
+  deathModeAt: 3, // 第幾次死亡進入「死神」模式
+  darkenPerDeath: 0.16, // 每死一次,戰鬥畫面疊加的黑暗 alpha(死神模式再額外加深)
+  speedup: 1.5, // 死神模式:衝刺循環時長 ÷ 此值、移動與出招頻率 × 此值(比狂暴更兇)
 }
 
 // 開場短演出 / 撕裂收尾的長度(秒)
 export const INTRO = { duration: 2.6 }
 export const FINISHER = { duration: 2.4 }
+
+// 壞結局演出:在地獄(死神)模式中再死一次 → 黑霧聚攏、漆黑細手「緩緩」伸出捏住心臟 → 壞結局畫面。
+//   duration 拉長讓伸手過程更有壓迫感;shake = 畫面震動的最大位移(px)。
+export const BADEND = { duration: 5.4, shake: 7 }

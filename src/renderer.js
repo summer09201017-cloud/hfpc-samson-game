@@ -1,4 +1,4 @@
-import { VIEW, ARENA, SAMSON, LION, INTRO, FINISHER } from './config.js'
+import { VIEW, ARENA, SAMSON, LION, HONEY, ROCK, CORRUPTION, INTRO, FINISHER, BADEND } from './config.js'
 
 // 俯視角(3/4 視角)繪製:地面是一塊俯視的競技場,角色是站立的小人/小獅,
 // 用 y 座標排序前後、腳下加陰影做出在地面走動的感覺。背景與角色全用 Canvas 向量
@@ -58,6 +58,10 @@ export class Renderer {
     }
     if (game.state === 'finisher') {
       this._drawFinisher(game, t)
+      return
+    }
+    if (game.state === 'badending') {
+      this._drawBadEnding(game, t)
       return
     }
     this._drawArena(game, t)
@@ -233,18 +237,104 @@ export class Renderer {
       ctx.globalAlpha = 1
     }
 
+    // 蜂窩補血道具(呼應「從死獅取蜜」):金色光暈 + 🍯 + 小愛心;將消失時閃爍。
+    for (const h of game.honeys) {
+      if (h.t > HONEY.life - 1.5 && Math.floor(h.t * 8) % 2 === 0) continue // 快消失:閃爍提示
+      const cy = h.y + Math.sin(t * 3 + h.x * 0.05) * 3 // 上下飄浮
+      const glow = ctx.createRadialGradient(h.x, cy, 2, h.x, cy, HONEY.r + 12)
+      glow.addColorStop(0, 'rgba(255,201,71,0.55)')
+      glow.addColorStop(1, 'rgba(255,201,71,0)')
+      ctx.fillStyle = glow
+      ctx.beginPath()
+      ctx.arc(h.x, cy, HONEY.r + 12, 0, Math.PI * 2)
+      ctx.fill()
+      this._emoji('🍯', h.x, cy, 36, 'middle')
+      this._emoji('❤️', h.x + 15, cy - 16, 17, 'middle')
+    }
+
+    // 最後狂暴:獅子腳下脈動紅光暈(暗示「所有攻擊加快」)
+    if (l.enraged()) {
+      const pulse = 0.5 + 0.5 * Math.abs(Math.sin(t * 9))
+      const rad = LION.r * (1.5 + 0.25 * pulse)
+      const aura = ctx.createRadialGradient(l.x, l.y, LION.r * 0.4, l.x, l.y, rad)
+      aura.addColorStop(0, `rgba(220,40,30,${0.35 * pulse})`)
+      aura.addColorStop(1, 'rgba(220,40,30,0)')
+      ctx.fillStyle = aura
+      ctx.beginPath()
+      ctx.arc(l.x, l.y, rad, 0, Math.PI * 2)
+      ctx.fill()
+    }
+
     // 依 y 排序前後(y 大的在前/下方)
     const drawSamson = () => {
       const blink = s.invuln > 0 && Math.floor(s.invuln * 12) % 2 === 0 && game.state === 'fight'
       if (!blink) this._samson(s.x, s.y, s.face, s.action, s.actionT, s.moving, s.walkPhase)
     }
-    const drawLion = () => this._lion(l.x, l.y, l.face, l.state, l.phase(), t, l.flash, l.open)
+    const drawLion = () => this._lion(l.x, l.y, l.face, l.state, l.phase(), t, l.flash, l.open, l.deathMode)
     if (s.y <= l.y) {
       drawSamson()
       drawLion()
     } else {
       drawLion()
       drawSamson()
+    }
+
+    // 石頭:地上=帶陰影的灰石(將消失時閃爍);飛行=旋轉的石塊 + 後方塵痕。
+    for (const r of game.rocks) {
+      if (r.state === 'ground' && r.t > ROCK.life - 1.5 && Math.floor(r.t * 8) % 2 === 0) continue
+      ctx.save()
+      if (r.state === 'thrown') {
+        // 後方塵痕(逆飛行方向)
+        ctx.globalAlpha = 0.4
+        ctx.strokeStyle = 'rgba(180,180,180,0.7)'
+        ctx.lineWidth = 4
+        ctx.beginPath()
+        ctx.moveTo(r.x, r.y)
+        ctx.lineTo(r.x - r.dx * 26, r.y - r.dy * 26)
+        ctx.stroke()
+        ctx.globalAlpha = 1
+        ctx.translate(r.x, r.y)
+        ctx.rotate(r.spin || 0)
+      } else {
+        ctx.translate(r.x, r.y)
+        // 腳下陰影
+        ctx.fillStyle = 'rgba(0,0,0,0.28)'
+        ctx.beginPath()
+        ctx.ellipse(0, ROCK.r * 0.5, ROCK.r * 0.95, ROCK.r * 0.4, 0, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      // 石塊本體
+      const g = ctx.createRadialGradient(-ROCK.r * 0.3, -ROCK.r * 0.3, 2, 0, 0, ROCK.r)
+      g.addColorStop(0, '#9aa0a6')
+      g.addColorStop(1, '#565b61')
+      ctx.fillStyle = g
+      ctx.beginPath()
+      ctx.ellipse(0, 0, ROCK.r, ROCK.r * 0.85, 0, 0, Math.PI * 2)
+      ctx.fill()
+      // 裂痕
+      ctx.strokeStyle = 'rgba(40,44,48,0.5)'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.moveTo(-ROCK.r * 0.4, -ROCK.r * 0.1)
+      ctx.lineTo(ROCK.r * 0.1, ROCK.r * 0.25)
+      ctx.stroke()
+      ctx.restore()
+    }
+
+    // 吃到蜂窩:上升的愛心(補血回饋)
+    if (game.fx.healT > 0) {
+      const p = 1 - game.fx.healT / 0.6
+      ctx.save()
+      ctx.globalAlpha = Math.min(1, game.fx.healT / 0.6)
+      this._emoji('❤️', game.fx.healX, game.fx.healY - 30 - p * 28, 30, 'middle')
+      ctx.restore()
+      ctx.globalAlpha = 1
+    }
+
+    // 死神模式:獅子頭上飄一個 💀(在翻轉的 _lion 之外畫,方向才正確)
+    if (l.deathMode) {
+      const bob = Math.sin(t * 2.5) * 4
+      this._emoji('💀', l.x, l.y - 96 + bob, 30, 'middle')
     }
 
     // 提示:預備動作 ⚠ / 破綻 💢
@@ -277,13 +367,73 @@ export class Renderer {
       this._emoji('💥', cx, cy, 30 + (1 - k) * 16, 'middle')
     }
 
+    // 墮落漸暗:每死一次畫面更黑一點;死神模式再加深 + 暗紫邊角暈影
+    if (game.deaths > 0) {
+      const lv = Math.min(game.deaths, CORRUPTION.deathModeAt)
+      ctx.fillStyle = `rgba(0,0,0,${lv * CORRUPTION.darkenPerDeath})`
+      ctx.fillRect(0, 0, VIEW.W, VIEW.H)
+      if (game.deathMode) {
+        const vg = ctx.createRadialGradient(VIEW.W / 2, VIEW.H / 2, 120, VIEW.W / 2, VIEW.H / 2, VIEW.W * 0.62)
+        vg.addColorStop(0, 'rgba(20,0,30,0)')
+        vg.addColorStop(1, 'rgba(20,0,30,0.55)')
+        ctx.fillStyle = vg
+        ctx.fillRect(0, 0, VIEW.W, VIEW.H)
+      }
+    }
+
     // 受傷紅暈
     if (game.fx.hurtT > 0) {
       ctx.fillStyle = `rgba(190,40,30,${0.3 * (game.fx.hurtT / 0.4)})`
       ctx.fillRect(0, 0, VIEW.W, VIEW.H)
     }
 
+    // 神蹟降臨:天降閃電打在獅子身上 + 全場神聖白光 + 經文(得勝出於神的靈)
+    if (game.fx.boltT > 0) this._lightning(game, l)
+
     this._hud(game, t)
+  }
+
+  // 天降閃電(神蹟):鋸齒狀亮白閃電從天打到獅子,伴隨全場白光與經文淡出
+  _lightning(game, l) {
+    const ctx = this.ctx
+    const k = game.fx.boltT / 0.6 // 1 → 0
+    // 全場神聖白光(快速淡出)
+    ctx.fillStyle = `rgba(255,250,235,${0.5 * k})`
+    ctx.fillRect(0, 0, VIEW.W, VIEW.H)
+    // 鋸齒閃電:從畫面頂端打到獅子頭頂(用 walkPhase 無關的固定折線,boltT 決定可見度)
+    const topY = 0
+    const tx = l.x
+    const ty = l.y - LION.r
+    const segs = 7
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    for (const pass of [{ w: 11, c: `rgba(190,225,255,${0.55 * k})` }, { w: 4.5, c: `rgba(255,255,255,${k})` }]) {
+      ctx.strokeStyle = pass.c
+      ctx.lineWidth = pass.w
+      ctx.beginPath()
+      ctx.moveTo(tx, topY)
+      for (let i = 1; i < segs; i++) {
+        const f = i / segs
+        // 固定鋸齒(不用亂數,避免逐幀跳動):用 sin 製造左右偏移,越接近獅子越收斂
+        const jag = Math.sin(i * 2.3) * 34 * (1 - f)
+        ctx.lineTo(tx + jag, topY + (ty - topY) * f)
+      }
+      ctx.lineTo(tx, ty)
+      ctx.stroke()
+    }
+    // 擊中點爆光
+    ctx.fillStyle = `rgba(255,255,255,${0.8 * k})`
+    ctx.beginPath()
+    ctx.arc(tx, ty, 26 * (0.5 + (1 - k)), 0, Math.PI * 2)
+    ctx.fill()
+    // 經文(神蹟降臨的意義)
+    if (game.miracleText) {
+      ctx.fillStyle = `rgba(60,40,15,${k})`
+      ctx.font = `800 26px ${FONT}`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(game.miracleText, VIEW.W / 2, 70)
+    }
   }
 
   // ---- 開場:參孫站在葡萄園,少壯獅子從場邊登場吼叫 ----
@@ -374,6 +524,208 @@ export class Renderer {
     }
   }
 
+  // ---- 壞結局演出:黑霧聚攏 → 漆黑細手「緩緩」伸出捏住心臟 → 全黑(伴隨畫面震動)----
+  _drawBadEnding(game, t) {
+    const ctx = this.ctx
+    const s = game.samson
+    const p = Math.min(1, game.bad.t / BADEND.duration)
+
+    // 時間軸(總長拉長 → 伸手過程更慢更有壓迫感)
+    const gather = Math.max(0, Math.min(1, p / 0.3)) // 黑霧聚攏:0→30%
+    const reach = Math.max(0, Math.min(1, (p - 0.22) / 0.5)) // 手緩緩伸入:22%→72%
+    const grip = Math.max(0, Math.min(1, (p - 0.66) / 0.2)) // 收攏捏住:66%→86%
+
+    // 背景與壓暗層(不震動 → 邊緣不露空)
+    this._bgArena(t)
+    ctx.fillStyle = `rgba(8,2,12,${0.45 + 0.5 * p})`
+    ctx.fillRect(0, 0, VIEW.W, VIEW.H)
+
+    // 畫面震動:伸手時微震,捏住時加劇(只震動「動作層」)
+    const shakeI = Math.min(1, reach * 0.4 + grip * 1.0)
+    const amp = BADEND.shake * shakeI
+    const shx = Math.sin(t * 53) * amp + Math.sin(t * 89) * amp * 0.4
+    const shy = Math.cos(t * 61) * amp + Math.cos(t * 97) * amp * 0.4
+    ctx.save()
+    ctx.translate(shx, shy)
+
+    // 參孫(站在中央,逐漸被吞沒)
+    this._samson(s.x, s.y, 1, 'idle', 0, false, 0)
+    const heartX = s.x
+    const heartY = s.y - 42
+
+    // 黑霧(四面八方):鋪滿全場的飄動煙團 + 四邊壓濃,隨 gather 變濃
+    for (let i = 0; i < 30; i++) {
+      // 散布到整個畫面(用質數步進避免規則排列)
+      const bx = ((i * 167 + 40) % VIEW.W) + Math.sin(t * 0.5 + i) * 22
+      const by = ((i * 109 + 30) % VIEW.H) + Math.cos(t * 0.45 + i * 1.7) * 18
+      const rad = 46 + 22 * Math.sin(t * 1.2 + i * 2.1)
+      this._smokePuff(bx, by, rad, 0.42 * gather)
+    }
+    // 四邊向內湧的濃霧帶(上/下/左/右)
+    for (let i = 0; i < 8; i++) {
+      const f = i / 7
+      const drift = Math.sin(t * 0.8 + i) * 16
+      this._smokePuff(VIEW.W * f + drift, 8, 70, 0.5 * gather) // 上
+      this._smokePuff(VIEW.W * f - drift, VIEW.H - 8, 70, 0.5 * gather) // 下
+      this._smokePuff(8, VIEW.H * f + drift, 70, 0.5 * gather) // 左
+      this._smokePuff(VIEW.W - 8, VIEW.H * f - drift, 70, 0.5 * gather) // 右
+    }
+    // 圍繞參孫的較濃聚攏霧(吞沒感)
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2 + t * 0.6
+      const dist = 140 - 100 * gather + Math.sin(t * 2 + i) * 10
+      const cx = s.x + Math.cos(a) * dist
+      const cy = s.y - 20 + Math.sin(a) * dist * 0.7
+      this._smokePuff(cx, cy, 34 + 14 * Math.sin(t * 1.5 + i * 2), 0.55 * gather)
+    }
+
+    // 漆黑細長的手:從右側黑霧深處「緩緩」伸出,手指收攏到心臟位置
+    if (reach > 0) {
+      const startX = s.x + 300 // 從更遠處伸來 → 伸入距離更長
+      const startY = s.y - 8
+      // 手掌位置:略在心臟後方(讓手指能往前包住心臟)
+      const palmX = startX + (heartX + 22 - startX) * reach
+      const palmY = startY + (heartY - startY) * reach
+      const handAng = Math.atan2(heartY - palmY, heartX - palmX) // 手指朝向心臟
+      // 手腕後方「另一團濃煙」:手從這團煙裡伸出來
+      const rootX = palmX - Math.cos(handAng) * 64
+      const rootY = palmY - Math.sin(handAng) * 64
+      this._smokePuff(rootX, rootY, 60, 0.8)
+      this._smokePuff(rootX + 14, rootY - 10, 40, 0.7)
+      this._smokePuff(rootX - 10, rootY + 14, 44, 0.7)
+      this._shadowHand(palmX, palmY, handAng, grip)
+
+      // 心臟(被捏住 → 收縮 + 裂痕)
+      const beat = 1 - 0.18 * Math.abs(Math.sin(t * 6))
+      const squeeze = 1 - 0.5 * grip
+      const hr = 11 * beat * squeeze
+      ctx.fillStyle = `rgb(${170 - 60 * grip},${30 - 20 * grip},${40 - 20 * grip})`
+      this._heart(heartX, heartY, hr)
+      if (grip > 0.3) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.7)'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.moveTo(heartX, heartY - hr)
+        ctx.lineTo(heartX - hr * 0.4, heartY + hr * 0.5)
+        ctx.moveTo(heartX + hr * 0.3, heartY - hr * 0.3)
+        ctx.lineTo(heartX - hr * 0.2, heartY + hr * 0.6)
+        ctx.stroke()
+      }
+    }
+
+    ctx.restore() // 結束震動層
+
+    // 收尾全黑 + 字幕(不震動,維持可讀)
+    if (p > 0.86) {
+      const k = (p - 0.86) / 0.14
+      ctx.fillStyle = `rgba(0,0,0,${k})`
+      ctx.fillRect(0, 0, VIEW.W, VIEW.H)
+    }
+    ctx.fillStyle = `rgba(180,40,40,${Math.min(1, p * 1.3)})`
+    ctx.font = `800 30px ${FONT}`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('黑暗奪去了參孫的心……', VIEW.W / 2, VIEW.H - 54)
+  }
+
+  // 小愛心(以 (x,y) 為中心,r 為大致半徑)
+  _heart(x, y, r) {
+    const ctx = this.ctx
+    ctx.beginPath()
+    ctx.moveTo(x, y + r * 0.8)
+    ctx.bezierCurveTo(x - r * 1.4, y - r * 0.4, x - r * 0.5, y - r * 1.2, x, y - r * 0.4)
+    ctx.bezierCurveTo(x + r * 0.5, y - r * 1.2, x + r * 1.4, y - r * 0.4, x, y + r * 0.8)
+    ctx.closePath()
+    ctx.fill()
+  }
+
+  // 一團黑煙(放射漸層)
+  _smokePuff(cx, cy, rad, alpha) {
+    const ctx = this.ctx
+    const g = ctx.createRadialGradient(cx, cy, 1, cx, cy, rad)
+    g.addColorStop(0, `rgba(10,6,16,${alpha})`)
+    g.addColorStop(0.6, `rgba(12,7,18,${alpha * 0.6})`)
+    g.addColorStop(1, 'rgba(12,7,18,0)')
+    ctx.fillStyle = g
+    ctx.beginPath()
+    ctx.arc(cx, cy, rad, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // 漆黑的手(從黑霧伸出抓心臟):本地 +x = 手指朝向。grip 0→1 = 從張開到收攏抓握。
+  _shadowHand(px, py, ang, grip) {
+    const ctx = this.ctx
+    const DARK = '#04020a'
+    const EDGE = '#171327'
+    ctx.save()
+    ctx.translate(px, py)
+    ctx.rotate(ang)
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+
+    // 前臂 + 手腕(自後方黑霧伸來,往 -x 延伸並收細)
+    ctx.fillStyle = DARK
+    ctx.beginPath()
+    ctx.moveTo(-58, -6)
+    ctx.quadraticCurveTo(-30, -9, -6, -8) // 上緣
+    ctx.lineTo(-6, 8)
+    ctx.quadraticCurveTo(-30, 9, -58, 6) // 下緣
+    ctx.closePath()
+    ctx.fill()
+
+    // 手背(掌)——圓角梯形
+    ctx.beginPath()
+    ctx.moveTo(-8, -9)
+    ctx.quadraticCurveTo(11, -10, 12, -7)
+    ctx.lineTo(12, 7)
+    ctx.quadraticCurveTo(11, 10, -8, 9)
+    ctx.closePath()
+    ctx.fill()
+
+    // 四指:基部在掌前緣(x≈12),往 +x 伸,grip 越大越向內彎曲包住
+    const open = 1 - grip
+    const fingers = [-7, -2.5, 2, 6.5] // 各指的 y 基準
+    const segW = [4.4, 4.8, 4.6, 4.0] // 指粗(中指最粗)
+    for (let i = 0; i < 4; i++) {
+      const yb = fingers[i]
+      const reach = 16 + i * 0 + (i === 1 || i === 2 ? 3 : 0) // 中間兩指略長
+      // 兩段指節:張開時往前直伸,收攏時關節彎曲、指尖朝掌心內收
+      const midX = 12 + reach * 0.55 * (0.6 + 0.4 * open)
+      const midY = yb + (grip * yb * -0.15)
+      const tipX = 12 + reach * (0.5 + 0.5 * open) // 收攏時縮短
+      const tipY = yb * (0.35 + 0.65 * open) - grip * 5 * Math.sign(yb || 1) * 0 // 指尖向中線收
+      ctx.strokeStyle = DARK
+      ctx.lineWidth = segW[i]
+      ctx.beginPath()
+      ctx.moveTo(12, yb)
+      ctx.quadraticCurveTo(midX, midY - 3 * open, tipX, tipY)
+      ctx.stroke()
+      // 指節高光
+      ctx.strokeStyle = EDGE
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(13, yb - segW[i] * 0.3)
+      ctx.quadraticCurveTo(midX, midY - 3 * open - segW[i] * 0.3, tipX, tipY)
+      ctx.stroke()
+    }
+
+    // 拇指:在掌的下側分出,較短、與四指對握
+    {
+      const baseX = 2
+      const baseY = 10
+      const tipX = 12 + 9 * open
+      const tipY = 10 - 12 * grip // 收攏時往上與四指對握
+      ctx.strokeStyle = DARK
+      ctx.lineWidth = 5
+      ctx.beginPath()
+      ctx.moveTo(baseX, baseY)
+      ctx.quadraticCurveTo(baseX + 8, baseY + 1, tipX, tipY)
+      ctx.stroke()
+    }
+
+    ctx.restore()
+  }
+
   // ---- 背景:俯視的亭拿葡萄園競技場 ----
   _bgArena(t) {
     const ctx = this.ctx
@@ -439,139 +791,243 @@ export class Renderer {
     ctx.fill()
   }
 
-  // ---- 參孫(俯視站立小人,可左右朝向、走路擺動、出手前傾)----
+  // ---- 參孫(俯視站立小人,正常人體比例,可左右朝向、走路擺動、出手前傾)----
   _samson(x, footY, face, action, actionT, moving, walkPhase) {
     const ctx = this.ctx
-    const SKIN = '#e3a76b'
-    const SKIN_D = '#c98b50'
+    const SKIN = '#e7ac72'
+    const SKIN_D = '#c9874b'
     const HAIR = '#3a2412'
-    const TUNIC = '#9a6a34'
-    const TUNIC_D = '#7d5328'
+    const HAIR_HI = '#5a3a1c'
+    const TUNIC = '#a9762f'
+    const TUNIC_D = '#80561f'
+    const TUNIC_HI = '#c1893f'
     const BELT = '#5b3a16'
+    const BAND = '#b23b2e' // 紅頭帶
 
-    this._shadow(x, footY, 20)
+    this._shadow(x, footY, 18)
     ctx.save()
     ctx.translate(x, footY)
     if (face < 0) ctx.scale(-1, 1)
 
     const sw = moving ? Math.sin(walkPhase) * 0.5 : 0
     const aF = action === 'attack' ? Math.min(1, actionT / SAMSON.attackTime) : 0
-    const lean = action === 'attack' ? Math.sin(aF * Math.PI) * 0.45 : 0
+    const punch = Math.sin(aF * Math.PI) // 0→1→0 出拳曲線
+    const lean = action === 'attack' ? punch * 0.32 : 0
+    // 正常比例的骨架點
     const hipY = -30
-    const shoulderY = -54
-    const headY = -64
+    const chestY = -46
+    const shoulderY = -52
+    const headY = -66
     const headR = 8
 
-    const drawLeg = (ang, color) => {
-      const fx = Math.sin(ang) * 15
-      ctx.strokeStyle = color
-      ctx.lineWidth = 9
+    // ---- 腿(大腿+小腿兩段、正常粗細,有涼鞋)----
+    const drawLeg = (ang, skin, skinD) => {
+      const kneeX = Math.sin(ang) * 7
+      const footX = Math.sin(ang) * 13
+      const kneeY = hipY / 2
       ctx.lineCap = 'round'
+      ctx.strokeStyle = skinD
+      ctx.lineWidth = 7.5 // 大腿
       ctx.beginPath()
-      ctx.moveTo(0, hipY)
-      ctx.lineTo(fx, -2)
+      ctx.moveTo(-2, hipY + 1)
+      ctx.lineTo(kneeX, kneeY)
       ctx.stroke()
+      ctx.strokeStyle = skin
+      ctx.lineWidth = 6 // 小腿
+      ctx.beginPath()
+      ctx.moveTo(kneeX, kneeY)
+      ctx.lineTo(footX, -2)
+      ctx.stroke()
+      // 涼鞋
       ctx.fillStyle = '#5e3c18'
       ctx.beginPath()
-      ctx.ellipse(fx + 2, -1, 7, 3.4, 0, 0, Math.PI * 2)
+      ctx.ellipse(footX + 1, -1.5, 6.5, 3, 0, 0, Math.PI * 2)
       ctx.fill()
     }
-    ctx.globalAlpha = 0.9
-    drawLeg(-sw, SKIN_D)
+    ctx.globalAlpha = 0.92
+    drawLeg(-sw, SKIN_D, '#a86e3a') // 遠腿(暗)
     ctx.globalAlpha = 1
-    drawLeg(sw, SKIN)
+    drawLeg(sw, SKIN, SKIN_D) // 近腿
 
     ctx.save()
     ctx.translate(0, hipY)
     ctx.rotate(lean)
     ctx.translate(0, -hipY)
 
-    // 軀幹(束腰短袍)
+    // ---- 後手臂(出手時向後拉作勢)----
+    {
+      const backReach = action === 'attack' ? -13 - punch * 6 : -10
+      ctx.strokeStyle = SKIN_D
+      ctx.lineCap = 'round'
+      ctx.lineWidth = 5.5
+      ctx.beginPath()
+      ctx.moveTo(-7, shoulderY + 4)
+      ctx.lineTo(-11, chestY + 11)
+      ctx.lineTo(backReach, hipY - 5)
+      ctx.stroke()
+      ctx.fillStyle = SKIN_D
+      ctx.beginPath()
+      ctx.arc(backReach, hipY - 5, 3.4, 0, Math.PI * 2)
+      ctx.fill()
+    }
+
+    // ---- 軀幹:束腰短袍(正常身形,簡潔的高光/陰影分面 + 下襬)----
     ctx.fillStyle = TUNIC
     ctx.beginPath()
-    ctx.moveTo(-12, shoulderY)
-    ctx.lineTo(12, shoulderY)
-    ctx.lineTo(13, hipY)
-    ctx.lineTo(-13, hipY)
+    ctx.moveTo(-9, shoulderY + 1)
+    ctx.lineTo(9, shoulderY + 1)
+    ctx.lineTo(8, hipY + 2)
+    ctx.lineTo(-8, hipY + 2)
     ctx.closePath()
     ctx.fill()
+    // 高光(左半)
+    ctx.fillStyle = TUNIC_HI
+    ctx.beginPath()
+    ctx.moveTo(-9, shoulderY + 1)
+    ctx.lineTo(-1, shoulderY + 1)
+    ctx.lineTo(-1, hipY + 2)
+    ctx.lineTo(-8, hipY + 2)
+    ctx.closePath()
+    ctx.fill()
+    // 陰影(右半)
     ctx.fillStyle = TUNIC_D
     ctx.beginPath()
-    ctx.moveTo(3, shoulderY)
-    ctx.lineTo(12, shoulderY)
-    ctx.lineTo(13, hipY)
-    ctx.lineTo(4, hipY)
+    ctx.moveTo(4, shoulderY + 1)
+    ctx.lineTo(9, shoulderY + 1)
+    ctx.lineTo(8, hipY + 2)
+    ctx.lineTo(4, hipY + 2)
     ctx.closePath()
     ctx.fill()
+    // 下襬
+    ctx.fillStyle = TUNIC_D
+    ctx.beginPath()
+    ctx.moveTo(-8, hipY + 2)
+    ctx.lineTo(8, hipY + 2)
+    ctx.lineTo(7, hipY + 10)
+    ctx.lineTo(-7, hipY + 10)
+    ctx.closePath()
+    ctx.fill()
+    // 領口(露出脖子下方一點膚色)
+    ctx.fillStyle = SKIN
+    ctx.beginPath()
+    ctx.moveTo(-3, shoulderY + 1)
+    ctx.lineTo(3, shoulderY + 1)
+    ctx.lineTo(0, shoulderY + 5)
+    ctx.closePath()
+    ctx.fill()
+    // 腰帶
     ctx.strokeStyle = BELT
-    ctx.lineWidth = 4
+    ctx.lineWidth = 3.5
     ctx.lineCap = 'butt'
     ctx.beginPath()
-    ctx.moveTo(-12, hipY - 3)
-    ctx.lineTo(13, hipY - 3)
+    ctx.moveTo(-9, hipY)
+    ctx.lineTo(9, hipY)
     ctx.stroke()
+    ctx.fillStyle = '#caa14a'
+    ctx.fillRect(-2.5, hipY - 2, 5, 4) // 帶釦
 
-    // 後手臂
-    ctx.strokeStyle = SKIN_D
-    ctx.lineWidth = 8
+    // ---- 前手臂 ----
+    const shX = 7
+    const shoY = shoulderY + 4
+    let reachX, fistY
+    ctx.strokeStyle = SKIN
     ctx.lineCap = 'round'
-    ctx.beginPath()
-    ctx.moveTo(-6, shoulderY + 3)
-    ctx.lineTo(-13, shoulderY + 20)
-    ctx.stroke()
-
-    // 前手臂(出手時往前伸拳)
-    const reach = action === 'attack' ? 16 + Math.sin(aF * Math.PI) * 24 : 9
-    const fistY = action === 'attack' ? shoulderY + 6 : shoulderY + 22
-    ctx.strokeStyle = SKIN
-    ctx.lineWidth = 8
-    ctx.beginPath()
-    ctx.moveTo(6, shoulderY + 3)
-    ctx.lineTo(reach, fistY)
-    ctx.stroke()
-    ctx.fillStyle = SKIN
-    ctx.beginPath()
-    ctx.arc(reach, fistY, 5.2, 0, Math.PI * 2)
-    ctx.fill()
-
-    // 脖子 + 頭
-    ctx.strokeStyle = SKIN
     ctx.lineWidth = 6
+    if (action === 'attack') {
+      // 出拳:手臂「打直」往前平伸(肩 → 拳 一直線,不彎肘)
+      reachX = 14 + punch * 26
+      fistY = shoY + 1
+      ctx.beginPath()
+      ctx.moveTo(shX, shoY)
+      ctx.lineTo(reachX, fistY)
+      ctx.stroke()
+    } else {
+      // 待機:自然彎臂下垂(肩 → 肘 → 拳)
+      reachX = 11
+      fistY = chestY + 15
+      ctx.beginPath()
+      ctx.moveTo(shX, shoY)
+      ctx.lineTo(7, chestY + 9)
+      ctx.lineTo(reachX, fistY)
+      ctx.stroke()
+    }
+    // 拳頭
+    ctx.fillStyle = SKIN
     ctx.beginPath()
-    ctx.moveTo(0, shoulderY)
-    ctx.lineTo(0, headY + headR - 2)
+    ctx.arc(reachX, fistY, 4.8, 0, Math.PI * 2)
+    ctx.fill()
+    if (action === 'attack' && punch > 0.5) {
+      ctx.strokeStyle = `rgba(255,240,200,${(punch - 0.5) * 1.6})`
+      ctx.lineWidth = 2.5
+      ctx.beginPath()
+      ctx.arc(reachX + 7, fistY, 6, -0.8, 0.8)
+      ctx.stroke()
+    }
+
+    // ---- 脖子 + 頭 ----
+    ctx.strokeStyle = SKIN_D
+    ctx.lineWidth = 5
+    ctx.beginPath()
+    ctx.moveTo(0, shoulderY + 1)
+    ctx.lineTo(1, headY + headR - 1)
     ctx.stroke()
     ctx.fillStyle = SKIN
     ctx.beginPath()
-    ctx.arc(0, headY, headR, 0, Math.PI * 2)
+    ctx.arc(1, headY, headR, 0, Math.PI * 2)
     ctx.fill()
 
-    // 長髮(力量的記號)
+    // ---- 長髮(拿細耳人不剃髮 = 力量的記號;整齊的長髮,不過量)----
+    const hairSway = moving ? Math.sin(walkPhase) * 2.5 : 0
     ctx.fillStyle = HAIR
+    // 頭頂與後腦的髮罩
     ctx.beginPath()
-    ctx.arc(0, headY - 1, headR + 2, Math.PI * 0.92, Math.PI * 2.08)
+    ctx.arc(0, headY - 1, headR + 2, Math.PI * 0.8, Math.PI * 2.04)
     ctx.fill()
+    // 後披長髮(整片,到肩胛)
     ctx.beginPath()
     ctx.moveTo(-headR, headY - 4)
-    ctx.quadraticCurveTo(-headR - 11, headY + 16, -headR - 2, headY + 26)
-    ctx.quadraticCurveTo(-2, headY + 12, -headR + 2, headY - 2)
+    ctx.quadraticCurveTo(-headR - 7 + hairSway, headY + 12, -headR - 1 + hairSway, headY + 26)
+    ctx.quadraticCurveTo(-1, headY + 16, -2, headY)
     ctx.closePath()
     ctx.fill()
-
-    // 臉朝右(本地座標):鼻、眼、短鬍
-    ctx.fillStyle = SKIN
+    // 髮絲高光
+    ctx.strokeStyle = HAIR_HI
+    ctx.lineWidth = 1.2
     ctx.beginPath()
-    ctx.arc(headR - 1, headY + 1, 2, 0, Math.PI * 2)
-    ctx.fill()
+    ctx.moveTo(-2, headY - headR + 1)
+    ctx.quadraticCurveTo(-headR, headY + 6, -headR - 1 + hairSway, headY + 18)
+    ctx.stroke()
+    // 紅頭帶
+    ctx.strokeStyle = BAND
+    ctx.lineWidth = 2.4
+    ctx.beginPath()
+    ctx.arc(1, headY - 1, headR + 0.5, Math.PI * 1.05, Math.PI * 1.95)
+    ctx.stroke()
+
+    // ---- 臉(朝右):眉、眼、鼻、短鬍 ----
     ctx.fillStyle = '#2a1a0e'
     ctx.beginPath()
-    ctx.arc(headR - 3.5, headY - 1, 1.3, 0, Math.PI * 2)
+    ctx.arc(headR - 2.5, headY - 1, 1.4, 0, Math.PI * 2) // 眼
     ctx.fill()
+    ctx.strokeStyle = HAIR // 眉
+    ctx.lineWidth = 1.4
+    ctx.beginPath()
+    ctx.moveTo(headR - 5, headY - 3.5)
+    ctx.lineTo(headR - 0.5, headY - 3)
+    ctx.stroke()
+    ctx.strokeStyle = SKIN_D // 鼻
+    ctx.lineWidth = 1.6
+    ctx.beginPath()
+    ctx.moveTo(headR - 0.5, headY)
+    ctx.lineTo(headR + 1.5, headY + 2)
+    ctx.lineTo(headR - 1, headY + 2.5)
+    ctx.stroke()
+    // 短鬍(下顎)
     ctx.fillStyle = HAIR
     ctx.beginPath()
-    ctx.moveTo(-2, headY + 4)
-    ctx.quadraticCurveTo(headR - 1, headY + headR + 6, headR - 1, headY + 3)
-    ctx.quadraticCurveTo(headR - 4, headY + headR, -2, headY + 4)
+    ctx.moveTo(-1, headY + 3)
+    ctx.quadraticCurveTo(headR - 2, headY + headR + 4, headR, headY + 3)
+    ctx.quadraticCurveTo(headR - 3, headY + headR, -1, headY + 3)
     ctx.closePath()
     ctx.fill()
 
@@ -580,11 +1036,15 @@ export class Renderer {
   }
 
   // ---- 少壯獅子(俯視站立小獅,本地座標朝左;face>0 時水平翻轉成朝右)----
-  _lion(x, footY, face, state, phase, t, flash, open) {
+  _lion(x, footY, face, state, phase, t, flash, open, deathMode = false) {
     const ctx = this.ctx
-    const BODY = ['#c98a3a', '#b3742a', '#9a5f22'][phase] || '#c98a3a'
-    const BODY_D = ['#a8702a', '#8f5a1e', '#774717'][phase] || '#a8702a'
-    const MANE = ['#7a4a1c', '#683f17', '#542f10'][phase] || '#7a4a1c'
+    // 死神模式:暗黑死神配色(取代依 phase 的獅色)
+    const BODY = deathMode ? '#2a2330' : ['#d09543', '#bd7d2f', '#a36526'][phase] || '#d09543'
+    const BODY_D = deathMode ? '#171320' : ['#a8702a', '#8f5a1e', '#774717'][phase] || '#a8702a'
+    const BODY_HI = deathMode ? '#3a3142' : ['#e8b766', '#d49a4a', '#c1853a'][phase] || '#e8b766'
+    const MANE = deathMode ? '#100c1a' : ['#7a4a1c', '#683f17', '#542f10'][phase] || '#7a4a1c'
+    const MANE_D = deathMode ? '#070510' : ['#5e3713', '#4e2e0f', '#3e240b'][phase] || '#5e3713'
+    const MUZZLE = deathMode ? '#3a3142' : '#f0d9a8'
 
     this._shadow(x, footY, 38)
     ctx.save()
@@ -612,113 +1072,197 @@ export class Renderer {
       bodyY = -40
     }
 
-    // 尾巴
+    // 尾巴(末端毛球)
     ctx.strokeStyle = BODY_D
     ctx.lineWidth = 6
     ctx.lineCap = 'round'
     ctx.beginPath()
     ctx.moveTo(52, bodyY + 4)
-    ctx.quadraticCurveTo(78 + walk * 4, bodyY - 10, 72, bodyY - 28)
+    ctx.quadraticCurveTo(80 + walk * 4, bodyY - 12, 70, bodyY - 30)
     ctx.stroke()
     ctx.fillStyle = MANE
     ctx.beginPath()
-    ctx.arc(72, bodyY - 30, 5, 0, Math.PI * 2)
+    ctx.arc(69, bodyY - 32, 6, 0, Math.PI * 2)
     ctx.fill()
 
-    // 遠側腿
-    const leg = (lx, swing, color) => {
+    // 腿 + 爪(兩段感:腿幹 + 腳掌與趾線)
+    const leg = (lx, swing, color, dark) => {
       ctx.strokeStyle = color
-      ctx.lineWidth = 9
+      ctx.lineWidth = 10
       ctx.lineCap = 'round'
       ctx.beginPath()
-      ctx.moveTo(lx, bodyY + bodyH - 8)
-      ctx.lineTo(lx + swing, -2)
+      ctx.moveTo(lx, bodyY + bodyH - 10)
+      ctx.lineTo(lx + swing, -3)
       ctx.stroke()
-      ctx.fillStyle = BODY_D
+      // 腳掌
+      ctx.fillStyle = dark
       ctx.beginPath()
-      ctx.ellipse(lx + swing, -1, 7, 3.2, 0, 0, Math.PI * 2)
+      ctx.ellipse(lx + swing + 1, -1.5, 8, 4, 0, 0, Math.PI * 2)
       ctx.fill()
+      // 趾線
+      ctx.strokeStyle = MANE_D
+      ctx.lineWidth = 1
+      for (const tx of [-3, 0, 3]) {
+        ctx.beginPath()
+        ctx.moveTo(lx + swing + 1 + tx, -3.5)
+        ctx.lineTo(lx + swing + 1 + tx, 0.5)
+        ctx.stroke()
+      }
     }
-    ctx.globalAlpha = 0.88
-    leg(42, walk * 8, BODY_D)
-    leg(-26, -walk * 8, BODY_D)
+    ctx.globalAlpha = 0.86
+    leg(42, walk * 8, BODY_D, MANE_D) // 遠側腿(暗)
+    leg(-26, -walk * 8, BODY_D, MANE_D)
     ctx.globalAlpha = 1
 
-    // 軀幹
+    // 軀幹(主體 + 背部高光 + 腹部陰影)
     ctx.fillStyle = BODY
     ctx.beginPath()
     ctx.ellipse(8, bodyY, bodyW, bodyH, 0, 0, Math.PI * 2)
     ctx.fill()
-    ctx.fillStyle = BODY_D
+    ctx.fillStyle = BODY_HI // 背部高光
     ctx.beginPath()
-    ctx.ellipse(8, bodyY + 9, bodyW * 0.88, bodyH * 0.5, 0, 0, Math.PI * 2)
+    ctx.ellipse(2, bodyY - 11, bodyW * 0.7, bodyH * 0.42, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = BODY_D // 腹部陰影
+    ctx.beginPath()
+    ctx.ellipse(8, bodyY + 11, bodyW * 0.86, bodyH * 0.46, 0, 0, Math.PI * 2)
     ctx.fill()
 
     // 近側腿
-    leg(38, -walk * 8, BODY)
-    leg(-20, walk * 8, BODY)
+    leg(38, -walk * 8, BODY, BODY_D)
+    leg(-20, walk * 8, BODY, BODY_D)
 
-    // 鬃毛(放射)
+    // 鬃毛:外圈長毛(深)+ 內圈短毛(淺),雙層更厚實
     const mx = headX + 12
     const my = headY + 6
-    ctx.fillStyle = MANE
-    ctx.beginPath()
-    ctx.arc(mx, my, 28 + rear * 3, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.strokeStyle = MANE
-    ctx.lineWidth = 4
-    const spikes = 13
+    const spikes = 15
+    ctx.strokeStyle = MANE_D
+    ctx.lineWidth = 5
+    ctx.lineCap = 'round'
     for (let i = 0; i < spikes; i++) {
-      const a = (i / spikes) * Math.PI * 2
-      const r1 = 25 + rear * 3
-      const r2 = r1 + (rear ? 13 : 8) + (i % 2)
+      const a = (i / spikes) * Math.PI * 2 + 0.1
+      const r1 = 24 + rear * 3
+      const r2 = r1 + (rear ? 17 : 12) + (i % 2) * 2
       ctx.beginPath()
       ctx.moveTo(mx + Math.cos(a) * r1, my + Math.sin(a) * r1)
       ctx.lineTo(mx + Math.cos(a) * r2, my + Math.sin(a) * r2)
       ctx.stroke()
     }
+    ctx.fillStyle = MANE
+    ctx.beginPath()
+    ctx.arc(mx, my, 27 + rear * 3, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = MANE_D // 鬃毛內陰影環
+    ctx.beginPath()
+    ctx.arc(mx, my, 27 + rear * 3, Math.PI * 0.15, Math.PI * 0.85)
+    ctx.arc(mx, my, 20, Math.PI * 0.85, Math.PI * 0.15, true)
+    ctx.fill()
 
-    // 頭
+    // ===== 頭(3/4 側面朝左:前方=左。五官分層、透視一致)=====
+    // 臉盤(球)
     ctx.fillStyle = BODY
     ctx.beginPath()
-    ctx.arc(headX, headY, 17, 0, Math.PI * 2)
+    ctx.arc(headX, headY, 18, 0, Math.PI * 2)
     ctx.fill()
+
+    // 兩耳(後耳小且高、前耳大且低 → 3/4 透視)
+    const drawEar = (ex, ey, er) => {
+      ctx.fillStyle = BODY
+      ctx.beginPath()
+      ctx.arc(ex, ey, er, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = MANE_D
+      ctx.beginPath()
+      ctx.arc(ex, ey + er * 0.15, er * 0.5, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    drawEar(headX + 12, headY - 14, 5) // 後耳(遠)
+    drawEar(headX - 4, headY - 17, 6.5) // 前耳(近,較大)
+
+    // 吻部(向前下方突出的口鼻;前端=左)
+    ctx.fillStyle = MUZZLE
     ctx.beginPath()
-    ctx.arc(headX + 9, headY - 14, 5, 0, Math.PI * 2) // 耳
+    ctx.ellipse(headX - 9, headY + 6, 11, 8.5, -0.12, 0, Math.PI * 2)
     ctx.fill()
-    ctx.fillStyle = BODY_D
+    ctx.fillStyle = 'rgba(0,0,0,0.08)' // 吻部下緣陰影
     ctx.beginPath()
-    ctx.ellipse(headX - 12, headY + 4, 9, 7, 0, 0, Math.PI * 2)
+    ctx.ellipse(headX - 8, headY + 9, 9, 4, 0, 0, Math.PI * 2)
     ctx.fill()
+
+    // 鼻頭(在吻部最前端=左上;倒三角 + 人中線)
+    const noseX = headX - 18
+    const noseY = headY + 2
+    ctx.fillStyle = deathMode ? '#000' : '#3a1e12'
+    ctx.beginPath()
+    ctx.moveTo(noseX - 3, noseY - 1.5)
+    ctx.quadraticCurveTo(noseX + 3, noseY - 2.5, noseX + 3, noseY + 1)
+    ctx.lineTo(noseX, noseY + 3.5) // 鼻尖朝下
+    ctx.quadraticCurveTo(noseX - 3, noseY + 1.5, noseX - 3, noseY - 1.5)
+    ctx.closePath()
+    ctx.fill()
+
     const roar = state === 'telegraph' || state === 'charge'
     if (roar) {
+      // 張口怒吼:口在鼻下、沿吻部往後(右下)張開 + 上排獠牙
       ctx.fillStyle = '#4a1810'
       ctx.beginPath()
-      ctx.ellipse(headX - 13, headY + 8, 7, 6, 0, 0, Math.PI * 2)
+      ctx.ellipse(headX - 10, headY + 11, 7.5, 5.5, -0.1, 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = '#fff'
-      ctx.beginPath()
-      ctx.moveTo(headX - 19, headY + 3)
-      ctx.lineTo(headX - 16, headY + 9)
-      ctx.lineTo(headX - 21, headY + 8)
-      ctx.closePath()
-      ctx.fill()
+      for (const fx of [headX - 15, headX - 6]) {
+        ctx.beginPath()
+        ctx.moveTo(fx - 2, headY + 8)
+        ctx.lineTo(fx + 2, headY + 8)
+        ctx.lineTo(fx, headY + 12.5) // 獠牙朝下
+        ctx.closePath()
+        ctx.fill()
+      }
     } else {
-      ctx.strokeStyle = '#4a1810'
-      ctx.lineWidth = 2
+      // 閉口:人中 + 沿吻部往後的嘴線
+      ctx.strokeStyle = '#3a1e12'
+      ctx.lineWidth = 1.5
       ctx.beginPath()
-      ctx.moveTo(headX - 18, headY + 9)
-      ctx.lineTo(headX - 8, headY + 9)
+      ctx.moveTo(noseX, noseY + 3.5)
+      ctx.lineTo(headX - 11, headY + 10) // 人中
+      ctx.moveTo(headX - 16, headY + 10)
+      ctx.quadraticCurveTo(headX - 11, headY + 12, headX - 5, headY + 9) // 嘴角往後上揚
       ctx.stroke()
     }
-    ctx.fillStyle = '#2a160a'
+
+    // 鬍鬚(自吻部兩側往前散出=左)
+    ctx.strokeStyle = deathMode ? 'rgba(180,180,200,0.45)' : 'rgba(50,32,18,0.45)'
+    ctx.lineWidth = 1
+    for (const dy of [0, 3]) {
+      ctx.beginPath()
+      ctx.moveTo(headX - 13, headY + 5 + dy)
+      ctx.quadraticCurveTo(headX - 24, headY + 3 + dy, headX - 30, headY + dy * 1.5)
+      ctx.stroke()
+    }
+
+    // 眼睛:在「額頭、吻部之上」,近眼(前/左)大而低、遠眼(後/右)小而高
+    const eyeNear = [headX - 7, headY - 4, 2.7]
+    const eyeFar = [headX + 4, headY - 6, 2.1]
+    // 眉骨(順著兩眼上緣)
+    ctx.strokeStyle = BODY_D
+    ctx.lineWidth = 2.2
+    ctx.lineCap = 'round'
     ctx.beginPath()
-    ctx.arc(headX - 19, headY + 1, 2.2, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = open ? '#fff' : '#2a160a'
-    ctx.beginPath()
-    ctx.arc(headX - 6, headY - 4, 2.3, 0, Math.PI * 2)
-    ctx.fill()
+    ctx.moveTo(eyeNear[0] - 4, eyeNear[1] - 3)
+    ctx.quadraticCurveTo(eyeNear[0], eyeNear[1] - 5, eyeNear[0] + 4, eyeNear[1] - 3)
+    ctx.moveTo(eyeFar[0] - 3, eyeFar[1] - 2.5)
+    ctx.quadraticCurveTo(eyeFar[0], eyeFar[1] - 4, eyeFar[0] + 3, eyeFar[1] - 2.5)
+    ctx.stroke()
+    // 眼白(recovery 破綻時亮起)/ 眼珠
+    for (const [ex, ey, er] of [eyeNear, eyeFar]) {
+      ctx.fillStyle = open ? '#ffe9a8' : '#f3e3c0'
+      ctx.beginPath()
+      ctx.ellipse(ex, ey, er, er * 0.82, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#241208' // 瞳孔(朝前=左)
+      ctx.beginPath()
+      ctx.arc(ex - er * 0.4, ey, er * 0.55, 0, Math.PI * 2)
+      ctx.fill()
+    }
 
     if (flash > 0) {
       ctx.globalAlpha = Math.min(0.6, flash * 2)
@@ -727,6 +1271,24 @@ export class Renderer {
       ctx.ellipse(8, bodyY, bodyW + 22, bodyH + 22, 0, 0, Math.PI * 2)
       ctx.fill()
       ctx.globalAlpha = 1
+    }
+
+    // 死神模式:發光紅眼(對齊 3/4 透視的眼睛位置)
+    if (deathMode) {
+      const glow = 0.6 + 0.4 * Math.abs(Math.sin(t * 5))
+      const eyes = [eyeNear, eyeFar]
+      ctx.fillStyle = `rgba(255,90,90,${0.5 * glow})` // 眼睛外暈
+      for (const [ex, ey, er] of eyes) {
+        ctx.beginPath()
+        ctx.arc(ex, ey, er + 3.5, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.fillStyle = `rgba(255,30,30,${glow})`
+      for (const [ex, ey, er] of eyes) {
+        ctx.beginPath()
+        ctx.arc(ex, ey, er + 0.6, 0, Math.PI * 2)
+        ctx.fill()
+      }
     }
 
     ctx.restore()

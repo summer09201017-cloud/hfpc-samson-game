@@ -1,4 +1,4 @@
-import { SAMSON, LION, INTRO, FINISHER } from './config.js'
+import { SAMSON, LION, HONEY, ROCK, MIRACLE, CORRUPTION, ARENA, INTRO, FINISHER, BADEND } from './config.js'
 import { Samson } from './samson.js'
 import { Lion } from './lion.js'
 import { Renderer } from './renderer.js'
@@ -11,6 +11,7 @@ const STATE = {
   INTRO: 'intro', // 走向葡萄園、獅子吼叫(可跳過)
   FIGHT: 'fight', // 核心:俯視角自由走位 + 近戰
   FINISHER: 'finisher', // 「撕裂」收尾(不可失敗,玩家不操控)
+  BADENDING: 'badending', // 壞結局演出:黑霧 + 漆黑細手捏心臟(地獄模式中死亡,玩家不操控)
   WIN: 'win',
   LOSE: 'lose',
   PAUSED: 'paused',
@@ -34,6 +35,7 @@ export class Game {
     this.level = [1].includes(opts.level) ? opts.level : 1
     this._hudOverride = opts.hudLabels || null
     this.hudLabels = this._hudOverride || { ...LEVEL1.hud }
+    this.miracleText = LEVEL1.miracle || '' // 神蹟降臨時浮現的字(renderer 讀,不寫死)
 
     this.samson = new Samson()
     this.lion = new Lion()
@@ -41,7 +43,18 @@ export class Game {
     this.combo = 0 // 連續有效反擊(視覺爽感用)
     this.intro = { t: 0 }
     this.fin = { t: 0 }
-    this.fx = { hitT: 0, hurtT: 0 } // 打擊 / 受傷特效計時(renderer 讀)
+    this.bad = { t: 0 } // 壞結局演出計時
+    this.fx = { hitT: 0, hurtT: 0, healT: 0, healX: 0, healY: 0, boltT: 0 } // 打擊/受傷/補血/閃電特效計時(renderer 讀)
+    this.honeys = [] // 場上的蜂窩補血道具:{ x, y, t }
+    this._honeyTimer = 0
+    this._honeyNext = HONEY.spawnMax
+    this.rocks = [] // 場上的石頭:{ x, y, t, state:'ground'|'thrown', dx, dy, spin }
+    this._rockTimer = 0
+    this._rockNext = ROCK.spawnMax
+    this._miracleTimer = 0 // 神蹟降臨倒數(每 MIRACLE.interval 秒一次)
+
+    this.deaths = 0 // 本輪累積死亡數(回標題 / 得勝才清零)→ 畫面漸暗、滿 deathModeAt 進死神模式
+    this.deathMode = false // 心智被侵蝕、獅子化為死神
 
     this.last = 0
     this.acc = 0
@@ -118,10 +131,21 @@ export class Game {
     this.samson.reset()
     this.lion.reset()
     this.combo = 0
-    this.fx = { hitT: 0, hurtT: 0 }
+    this.fx = { hitT: 0, hurtT: 0, healT: 0, healX: 0, healY: 0, boltT: 0 }
+    this.honeys = []
+    this._honeyTimer = 0
+    this._honeyNext = this._rollHoneyDelay()
+    this.rocks = []
+    this._rockTimer = 0
+    this._rockNext = this._rollRockDelay()
+    this._miracleTimer = 0
     this.acc = 0
+    this.lion.deathMode = this.deathMode // 死神模式:獅子全面強化(見 lion.cfg / renderer)
     this.state = STATE.FIGHT
-    this.hudLabels = this._hudOverride || { ...LEVEL1.hud }
+    this.hudLabels = this._hudOverride || {
+      ...LEVEL1.hud,
+      ...(this.deathMode && LEVEL1.deathHud ? LEVEL1.deathHud : {}),
+    }
     this.ui.hide()
     this.ui.showPauseButton()
     Audio.unlock()
@@ -153,6 +177,20 @@ export class Game {
     }
     if (l.claw.state === 'warn' && prevClaw === 'idle') Audio.sfx('roar', { big: true }) // 大爪擊預警
     if (l.claw.state === 'strike' && prevClaw === 'warn') Audio.sfx('dodge') // 斬擊揮下的破風聲
+
+    this._stepHoney(dt, s) // 蜂窩補血道具:老化 / 拾取 / 不定時生成
+    if (this._stepRocks(dt, s, l)) return // 石頭:撿到→扔向獅子→砸中扣血(可能觸發收尾)
+
+    // 神蹟降臨:每 MIRACLE.interval 秒(死神/地獄模式縮短為 deathInterval),天降閃電打獅子
+    this._miracleTimer += dt
+    const miracleEvery = this.deathMode ? MIRACLE.deathInterval : MIRACLE.interval
+    if (this._miracleTimer >= miracleEvery) {
+      this._miracleTimer -= miracleEvery
+      this.fx.boltT = 0.6
+      l.flash = Math.max(l.flash, 0.5)
+      Audio.sfx('tear') // 借用「撕裂」的爆發聲當雷擊
+      if (this._damageLion(MIRACLE.damage)) return // 閃電可能直接收尾
+    }
 
     const d = Math.hypot(l.x - s.x, l.y - s.y)
 
@@ -204,30 +242,156 @@ export class Game {
     if (s.attackActive() && !s.attackedThisSwing && d < SAMSON.attackReach) {
       s.attackedThisSwing = true
       if (l.open) {
-        const before = l.phase()
-        const hpBefore = l.hp
-        l.hit()
         this.combo += 1
         this.fx.hitT = 0.35
         Audio.sfx('clash')
-        if (this.lion.hp <= 0) {
-          this.enterFinisher()
-          return
-        }
-        // 一次性提示:剛跨入新階段(爪擊 hp<=15 / 捕獸夾 hp<10)→ 大吼 + 閃光
-        const crossedClaw = hpBefore > LION.clawHpThreshold && l.hp <= LION.clawHpThreshold
-        const crossedFang = hpBefore >= LION.fangHpThreshold && l.hp < LION.fangHpThreshold
-        if (crossedClaw || crossedFang) {
-          l.flash = 0.4
-          Audio.sfx('roar', { big: true })
-        } else if (l.phase() !== before) {
-          Audio.sfx('roar', { big: true })
-        }
+        if (this._damageLion(1)) return // 血歸零 → 撕裂收尾
       } else {
         this.combo = 0
         Audio.sfx('clash', { weak: true }) // 沒抓到破綻:被擋開
       }
     }
+  }
+
+  // 對獅子造成 n 點傷害,處理收尾與跨階段提示。回傳 true 表示已進入收尾(呼叫端應 return)。
+  // 反擊與「石頭砸中」共用。
+  _damageLion(n) {
+    const l = this.lion
+    const before = l.phase()
+    const hpBefore = l.hp
+    for (let i = 0; i < n; i++) l.hit()
+    if (this.lion.hp <= 0) {
+      this.enterFinisher()
+      return true
+    }
+    // 一次性提示:剛跨入新階段(爪擊 hp<=15 / 捕獸夾 hp<10 / 狂暴 hp<=3)→ 大吼 + 閃光
+    const crossedClaw = hpBefore > LION.clawHpThreshold && l.hp <= LION.clawHpThreshold
+    const crossedFang = hpBefore >= LION.fangHpThreshold && l.hp < LION.fangHpThreshold
+    const crossedEnrage = hpBefore > LION.enrageHpThreshold && l.hp <= LION.enrageHpThreshold
+    if (crossedClaw || crossedFang || crossedEnrage) {
+      l.flash = crossedEnrage ? 0.6 : 0.4
+      Audio.sfx('roar', { big: true })
+    } else if (l.phase() !== before) {
+      Audio.sfx('roar', { big: true })
+    }
+    return false
+  }
+
+  // 蜂窩補血道具:老化移除 → 拾取補血(滿血則不吃、留在場上)→ 不定時生成
+  _stepHoney(dt, s) {
+    if (this.honeys.length) {
+      for (const h of this.honeys) h.t += dt
+      this.honeys = this.honeys.filter((h) => h.t < HONEY.life)
+    }
+    if (s.hearts < SAMSON.maxHearts) {
+      const rr = HONEY.r + SAMSON.r
+      for (let i = 0; i < this.honeys.length; i++) {
+        const h = this.honeys[i]
+        if (Math.hypot(h.x - s.x, h.y - s.y) < rr) {
+          s.hearts = Math.min(SAMSON.maxHearts, s.hearts + HONEY.heal)
+          this.honeys.splice(i, 1)
+          this.fx.healT = 0.6
+          this.fx.healX = s.x
+          this.fx.healY = s.y
+          Audio.sfx('heal')
+          break
+        }
+      }
+    }
+    this._honeyTimer += dt
+    if (this._honeyTimer >= this._honeyNext && this.honeys.length < HONEY.maxOnField) {
+      this._honeyTimer = 0
+      this._honeyNext = this._rollHoneyDelay()
+      this.honeys.push(this._spawnHoney(s))
+    }
+  }
+
+  _rollHoneyDelay() {
+    return HONEY.spawnMin + Math.random() * (HONEY.spawnMax - HONEY.spawnMin)
+  }
+
+  _spawnHoney(s) {
+    const minX = ARENA.x + 34
+    const maxX = ARENA.x + ARENA.w - 34
+    const minY = ARENA.y + 34
+    const maxY = ARENA.y + ARENA.h - 34
+    let x = minX
+    let y = minY
+    for (let i = 0; i < 8; i++) {
+      x = minX + Math.random() * (maxX - minX)
+      y = minY + Math.random() * (maxY - minY)
+      if (Math.hypot(x - s.x, y - s.y) >= HONEY.safeR) break
+    }
+    return { x, y, t: 0 }
+  }
+
+  // 石頭:地上石頭老化/被撿(→扔出)、飛行石頭追向獅子並砸中扣血、不定時生成。
+  // 回傳 true 表示石頭砸中後觸發收尾(呼叫端應 return)。
+  _stepRocks(dt, s, l) {
+    for (let i = this.rocks.length - 1; i >= 0; i--) {
+      const r = this.rocks[i]
+      if (r.state === 'ground') {
+        r.t += dt
+        if (r.t >= ROCK.life) {
+          this.rocks.splice(i, 1)
+          continue
+        }
+        // 玩家碰到 → 立刻朝獅子扔出
+        if (Math.hypot(r.x - s.x, r.y - s.y) < ROCK.r + SAMSON.r) {
+          r.state = 'thrown'
+          r.spin = 0
+          Audio.sfx('dodge') // 扔出的破風聲
+        }
+      } else {
+        // 飛行:輕度追向獅子當下位置(確保這份獎勵會命中)
+        const a = Math.atan2(l.y - r.y, l.x - r.x)
+        r.dx = Math.cos(a)
+        r.dy = Math.sin(a)
+        r.x += r.dx * ROCK.speed * dt
+        r.y += r.dy * ROCK.speed * dt
+        r.spin = (r.spin || 0) + dt * 20
+        // 砸中獅子 → 扣血
+        if (Math.hypot(r.x - l.x, r.y - l.y) < LION.r + ROCK.r) {
+          this.rocks.splice(i, 1)
+          this.fx.hitT = 0.35
+          Audio.sfx('clash')
+          if (this._damageLion(ROCK.damage)) return true
+          continue
+        }
+        // 安全網:飛出場外就移除
+        if (
+          r.x < ARENA.x - 60 ||
+          r.x > ARENA.x + ARENA.w + 60 ||
+          r.y < ARENA.y - 60 ||
+          r.y > ARENA.y + ARENA.h + 60
+        ) {
+          this.rocks.splice(i, 1)
+        }
+      }
+    }
+    // 生成(只算地上的石頭數,飛行中的不佔額)
+    const groundCount = this.rocks.reduce((n, r) => n + (r.state === 'ground' ? 1 : 0), 0)
+    this._rockTimer += dt
+    if (this._rockTimer >= this._rockNext && groundCount < ROCK.maxOnField) {
+      this._rockTimer = 0
+      this._rockNext = this._rollRockDelay()
+      this.rocks.push(this._spawnRock())
+    }
+    return false
+  }
+
+  _rollRockDelay() {
+    return ROCK.spawnMin + Math.random() * (ROCK.spawnMax - ROCK.spawnMin)
+  }
+
+  _spawnRock() {
+    const minX = ARENA.x + 40
+    const maxX = ARENA.x + ARENA.w - 40
+    const minY = ARENA.y + 40
+    const maxY = ARENA.y + ARENA.h - 40
+    const x = minX + Math.random() * (maxX - minX)
+    const y = minY + Math.random() * (maxY - minY)
+    return { x, y, t: 0, state: 'ground', dx: 0, dy: 0, spin: 0 }
   }
 
   // 「撕裂」收尾:耶和華的靈大大感動參孫(不可失敗、玩家不操控)
@@ -253,6 +417,8 @@ export class Game {
 
     if (this.fx.hitT > 0) this.fx.hitT = Math.max(0, this.fx.hitT - dt)
     if (this.fx.hurtT > 0) this.fx.hurtT = Math.max(0, this.fx.hurtT - dt)
+    if (this.fx.healT > 0) this.fx.healT = Math.max(0, this.fx.healT - dt)
+    if (this.fx.boltT > 0) this.fx.boltT = Math.max(0, this.fx.boltT - dt)
 
     if (this.state === STATE.FIGHT) {
       this.acc += dt
@@ -271,6 +437,19 @@ export class Game {
       this.input.consumeAttack()
       this.input.consumeSkip()
       if (this.fin.t >= FINISHER.duration) this.win()
+    } else if (this.state === STATE.BADENDING) {
+      const prev = this.bad.t
+      this.bad.t += dt
+      this.input.consumeAttack()
+      this.input.consumeSkip()
+      if (prev < 1.2 && this.bad.t >= 1.2) Audio.sfx('roar', { big: true }) // 黑手自黑霧伸出
+      if (prev < 3.6 && this.bad.t >= 3.6) Audio.sfx('hit') // 心臟被捏住的悶擊
+      if (this.bad.t >= BADEND.duration) {
+        this.deaths = 0 // 黑暗贏了這一輪 → 下一輪從頭(恩典讓人重新開始)
+        this.deathMode = false
+        this.state = STATE.LOSE
+        this.ui.showBadEnding(LEVEL1)
+      }
     } else {
       // TITLE / LOSE:任意鍵 / 點擊 = 開始 / 重試(WIN / PAUSED 等按鈕)
       const skip = this.input.consumeSkip()
@@ -312,21 +491,46 @@ export class Game {
     this.ui.hidePauseButton()
     Audio.stopMusic()
     Audio.sfx('win')
+    // 注意:得勝「不」清零死亡數——死亡數是整輪累積的,只有「回標題」或壞結局才歸零。
+    // (否則中間贏一場就會把進度洗掉,導致「總共死了 3 次卻進不了地獄模式」。)
     if (this.embed) return this._finish(true)
     this.ui.showWin(LEVEL1, { hearts: this.samson.hearts, combo: this.combo })
   }
 
   gameOver() {
+    // 已在地獄(死神)模式中又死一次 → 黑暗奪心的壞結局演出
+    if (this.deathMode) return this.enterBadEnding()
+
     this.state = STATE.LOSE
     this.ui.hidePauseButton()
     Audio.stopMusic()
     Audio.sfx('lose')
+    this.deaths += 1 // 累積死亡 → 畫面漸暗;滿門檻進入死神模式
+    const justCorrupted = this.deaths >= CORRUPTION.deathModeAt
+    if (this.deaths >= CORRUPTION.deathModeAt) this.deathMode = true
     if (this.embed) return this._finish(false)
-    this.ui.showLose(LEVEL1)
+    // 剛跨入死神模式 → 顯示「心智被侵蝕」劇情文案
+    this.ui.showLose(LEVEL1, { corrupt: justCorrupted })
+  }
+
+  // 壞結局:黑霧 + 漆黑細手捏住心臟,演完進入壞結局畫面。演完後墮落清零(下一輪重新開始)。
+  enterBadEnding() {
+    this.ui.hidePauseButton()
+    Audio.stopMusic()
+    Audio.sfx('lose')
+    if (this.embed) {
+      this.deaths = 0
+      this.deathMode = false
+      return this._finish(false)
+    }
+    this.bad.t = 0
+    this.state = STATE.BADENDING
   }
 
   toTitle() {
     this.state = STATE.TITLE
+    this.deaths = 0 // 回標題 → 墮落清零
+    this.deathMode = false
     Audio.stopMusic()
     this.ui.hidePauseButton()
     this.ui.showTitle(LEVEL1)

@@ -1,4 +1,4 @@
-import { ARENA, LION, PHASES, phaseOf } from './config.js'
+import { ARENA, LION, PHASES, CORRUPTION, phaseOf } from './config.js'
 
 // 少壯獅子(boss):俯視角,在場上移動的單一物件狀態機。
 //   enter      登場:從場邊走向參孫
@@ -24,6 +24,7 @@ export class Lion {
     this.dirX = -1 // 鎖定的衝刺方向
     this.dirY = 0
     this.aimLocked = false // telegraph 末段:紅線方向已定住(不再追蹤玩家)
+    this.deathMode = false // 死神模式(玩家死滿門檻):全面強化 + 死神外觀(由 game 在 startFight 設定)
     this.face = -1 // 畫圖朝向(-1 朝左 / 1 朝右)
     this.chargeLeft = 0
     this.fangs = [] // 第二階段地上的捕獸夾:{ x, y, t }(t = 已存在秒數)
@@ -32,16 +33,38 @@ export class Lion {
     this.claw = { state: 'idle', t: 0, x: 0, y: 0, dx: 1, dy: 0 }
   }
 
-  // 第二階段(血量 < fangHpThreshold):每 fangInterval 秒放一根尖牙,每根 fangLife 秒後消失
+  // 第二階段(血量 < fangHpThreshold,或死神模式一律啟用):週期放捕獸夾
   inStage2() {
-    return this.hp < LION.fangHpThreshold
+    return this.deathMode || this.hp < LION.fangHpThreshold
   }
 
   phase() {
     return phaseOf(this.hp)
   }
+  // 最後狂暴:血量 <= 門檻 → 所有攻擊加快
+  enraged() {
+    return this.hp <= LION.enrageHpThreshold
+  }
+  // 整體加速倍率:狂暴(低血)與死神模式可疊加。衝刺循環、捕獸夾/爪擊頻率共用。
+  _speedMul() {
+    let e = 1
+    if (this.enraged()) e *= LION.enrageSpeedup
+    if (this.deathMode) e *= CORRUPTION.speedup
+    return e
+  }
   cfg() {
-    return PHASES[this.phase()]
+    const c = PHASES[this.phase()]
+    const e = this._speedMul()
+    if (e === 1) return c
+    // 時長縮短(÷e)、移動加速(×e);範圍與旗標不變
+    return {
+      telegraph: c.telegraph / e,
+      recovery: c.recovery / e,
+      approach: c.approach * e,
+      charge: c.charge * e,
+      lockRange: c.lockRange,
+      roar: c.roar,
+    }
   }
   charging() {
     return this.state === 'charge'
@@ -128,9 +151,10 @@ export class Lion {
       this._fangTimer = 0
       return
     }
+    const interval = LION.fangInterval / this._speedMul()
     this._fangTimer += dt
-    if (this._fangTimer >= LION.fangInterval) {
-      this._fangTimer -= LION.fangInterval
+    if (this._fangTimer >= interval) {
+      this._fangTimer -= interval
       this.fangs.push(this._spawnFang(s))
     }
   }
@@ -154,14 +178,15 @@ export class Lion {
   // 大範圍爪擊狀態機(idle → warn → strike → idle)。紅線在進入 warn 時定住,不再追蹤。
   _updateClaw(dt, s) {
     const cl = this.claw
-    if (this.hp > LION.clawHpThreshold) {
+    if (this.hp > LION.clawHpThreshold && !this.deathMode) {
       cl.state = 'idle'
       cl.t = 0
       return
     }
     cl.t += dt
     if (cl.state === 'idle') {
-      if (cl.t >= LION.clawGap) {
+      const gap = LION.clawGap / this._speedMul()
+      if (cl.t >= gap) {
         cl.state = 'warn'
         cl.t = 0
         // 紅線:穿過此刻玩家位置,方向由獅子指向玩家(之後定住,給 3 秒往垂直方向閃)

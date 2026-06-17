@@ -220,6 +220,9 @@ export const Audio = {
         blip(220, 0.18, 'sawtooth', 0.45, 520)
         arp([392, 523, 659, 880], 'triangle', 0.1, 0.45)
         break
+      case 'heal': // 吃到蜂蜜補血:溫暖上揚的小分解和弦
+        arp([523, 659, 784, 1047], 'triangle', 0.07, 0.42)
+        break
       case 'win':
         arp([523, 659, 784, 1047, 1319], 'square', 0.13, 0.5)
         break

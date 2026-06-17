@@ -29,7 +29,13 @@
 - **反擊**:空白/Enter/J/K/F,或**輕點畫面**(短按未拖曳)→ 出手。需同時滿足:靠近獅子(`SAMSON.attackReach`)+ 落在出手有效窗(`SAMSON.attackActive`)+ **獅子在 `open`(recovery 破綻窗)**才算數,扣 1 滴血;沒抓到破綻會被擋開(combo 歸零)。
 - **大範圍爪擊(血量 ≤ `LION.clawHpThreshold`,預設 15)**:`lion.claw` 子狀態機 `idle→warn→strike`。每隔 `clawGap`(2.5s)起一次:`warn` 期在地上顯示一條**穿過全場的紅線**(進 warn 時定住:穿過當下玩家位置、方向由獅子指向玩家),`clawTelegraph`(3s)後進 `strike`——沿線揮下斬擊 `clawStrike`(0.28s)。玩家到線的**垂直距 < `clawHalfWidth`(46)+ 半徑**才會被打(往垂直方向走開即閃過)。判定在 `game.js`(用 `lion.clawPerpDist`),繪製在 `renderer.js`(限制在 `ARENA` 內)。
 - **第二階段(血量 < `LION.fangHpThreshold`,預設 10)**:獅子每 `fangInterval`(2 秒)在場上放一個**捕獸夾**。每個生命週期:先在地上顯示 `fangWarn`(0.8 秒)**警示提示**(收緊的紅色目標圈+十字,無傷)→ 捕獸夾**彈出**並傷人 `fangLife`(5 秒)→ 消失。彈出後踩到扣 1 心(吃受擊無敵)。由 `lion.fangs[]`(每個 `{x,y,t}`,`t`=已存在秒數)自持:spawn/老化/cull 在 `lion._updateFangs`(總壽命 = `fangWarn+fangLife`),碰撞判定在 `game.js`(`f.t >= fangWarn` 才傷人),捕獸夾向量繪製在 `renderer.js`。不會生在玩家腳下(`fangSafeR`)。
-- 反擊 `LION.maxHp`(目前 20)下 → 觸發「撕裂」收尾(`enterFinisher`),神的靈光暈 + 經文淡入 → 過關。
+- **最後狂暴(血量 ≤ `LION.enrageHpThreshold`,預設 3)**:`lion.enraged()` 為真時,`cfg()` 把衝刺循環的時長 ÷`enrageSpeedup`(1.3)、移動速度 ×`enrageSpeedup`,捕獸夾 `fangInterval` 與爪擊 `clawGap` 也同步縮短 → 所有攻擊加快。只加快節奏/移動,大招預警窗保留。renderer 在獅子腳下畫脈動紅光暈。
+- **神蹟降臨(`MIRACLE`)**:每隔 `interval`(30 秒;死神/地獄模式縮短為 `deathInterval`=20 秒)天降閃電打在獅子身上,扣 `damage`(3)血——把「耶和華的靈大大感動參孫」直接演出來(得勝出於神、非人的本事)。計時在 `game.step`(`_miracleTimer`),傷害走共用 `_damageLion`(可直接觸發收尾),全場白光+鋸齒閃電+經文(`scripture.js` 的 `LEVEL1.miracle`,經 `game.miracleText` 餵給 renderer,不寫死)繪製在 `renderer._lightning`。
+- **墮落系統(`CORRUPTION`)**:玩家每死一次,戰鬥畫面疊加 `darkenPerDeath` 黑暗(`game.deaths` 累積);死滿 `deathModeAt`(3)次 → `game.deathMode=true`:失敗畫面改演劇情(心智被魔鬼侵蝕,`scripture.js` 的 `LEVEL1.corrupt`),獅子化為**死神**(`lion.deathMode` → 暗黑配色+發光紅眼+💀+暗紫暈影,HUD 名稱換 `LEVEL1.deathHud`),難度大增:`cfg()` 再乘 `speedup`(1.5,可與狂暴疊加)、捕獸夾與爪擊**滿血就啟用**。`deaths/deathMode` 在 `win()`(得勝洗淨)與 `toTitle()`(回標題)清零,同一輪不斷重試才累積。士師記的影子(士 16:一再失敗、心被蒙蔽)。
+- **壞結局(地獄模式中再死一次)**:已在 `deathMode` 時 `gameOver()` 改走 `enterBadEnding()` → 新狀態 `STATE.BADENDING` 演出(`renderer._drawBadEnding`:黑霧聚攏 → 漆黑細手伸入捏住心臟[`_heart`]→ 全黑字幕,長度 `BADEND.duration`),演完顯示壞結局畫面(`ui.showBadEnding` + `scripture.js` 的 `LEVEL1.badEnd`,羅 6:23 指向基督的盼望),並把 `deaths/deathMode` 清零讓下一輪重新開始。象徵性、不血腥。
+- 反擊 `LION.maxHp`(目前 30)下 → 觸發「撕裂」收尾(`enterFinisher`),神的靈光暈 + 經文淡入 → 過關。
+- **蜂窩補血(`HONEY`)**:場上每隔 `spawnMin~spawnMax`(6~11s 隨機=不定時)出現一個 🍯 蜂窩(場上最多 `maxOnField`,`life` 秒沒吃會閃爍後消失,不生在玩家腳下 `safeR`)。走過去(`HONEY.r`)補 `heal`(1)滴血,**滿血則不吃、留在場上**。由 `game.honeys[]` 自管(`_stepHoney`/`_spawnHoney`),呼應士 14:8-9「從死獅之內取蜜」。
+- **石頭反制(`ROCK`)**:場上不定時(`spawnMin~spawnMax`)出現灰石,玩家碰到(`ROCK.r`)→ 石頭自動**朝獅子扔出**(輕度追蹤確保命中)→ 砸中扣 `ROCK.damage`(1)血。由 `game.rocks[]`(`state:'ground'|'thrown'`)管理(`_stepRocks`),傷害走共用的 `_damageLion`(與反擊同一條路徑,含收尾與跨階段提示)。
 - 友善:參孫 `SAMSON.maxHearts`(目前 3)顆心、受擊無敵閃爍、失敗零懲罰乾淨重來。神學訊息(力量出於神的靈)在標題/勝利/蜂蜜彩蛋帶出。
 
 ## 一檔一責
