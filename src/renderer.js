@@ -726,61 +726,142 @@ export class Renderer {
     ctx.restore()
   }
 
+  // 一串葡萄(以 (x,y) 為頂端掛點,s 為大小;含葉與藤捲鬚)
+  _grapes(x, y, s) {
+    const ctx = this.ctx
+    // 葉
+    ctx.fillStyle = '#5a8a32'
+    ctx.beginPath()
+    ctx.ellipse(x - 4 * s, y - 2 * s, 6 * s, 4 * s, -0.5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#6fa23d'
+    ctx.beginPath()
+    ctx.ellipse(x + 4 * s, y - 2 * s, 5 * s, 3.5 * s, 0.5, 0, Math.PI * 2)
+    ctx.fill()
+    // 葡萄粒(倒三角串)
+    const rows = [[-2, 0], [0, 0], [2, 0], [-1, 2], [1, 2], [0, 4]]
+    for (const [dx, dy] of rows) {
+      const gx = x + dx * 3.1 * s
+      const gy = y + (dy + 1) * 3.1 * s
+      ctx.fillStyle = '#6a3d8a'
+      ctx.beginPath()
+      ctx.arc(gx, gy, 2.6 * s, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = 'rgba(180,140,210,0.7)' // 高光
+      ctx.beginPath()
+      ctx.arc(gx - 0.8 * s, gy - 0.8 * s, 1 * s, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+
   // ---- 背景:俯視的亭拿葡萄園競技場 ----
   _bgArena(t) {
     const ctx = this.ctx
     const A = ARENA
-    // 場外(葡萄園邊緣的暗土色)
-    ctx.fillStyle = '#2e1d0c'
+
+    // 場外土壤(上深下淺的暖土漸層)
+    const soil = ctx.createLinearGradient(0, 0, 0, VIEW.H)
+    soil.addColorStop(0, '#33210e')
+    soil.addColorStop(1, '#241608')
+    ctx.fillStyle = soil
     ctx.fillRect(0, 0, VIEW.W, VIEW.H)
 
-    // 場外四角的葡萄叢點綴
-    const bush = (bx, by) => {
-      ctx.fillStyle = '#4d7230'
+    // 環場葡萄園:沿四周(主要上/下帶)立藤架柱 + 拉線 + 掛葡萄串
+    ctx.save()
+    // 上方葡萄園帶(y 0..A.y)
+    const postY0 = 16
+    const postY1 = A.y - 14
+    ctx.strokeStyle = 'rgba(90,66,38,0.9)'
+    for (let x = 40; x < VIEW.W; x += 96) {
+      // 立柱
+      ctx.lineWidth = 5
       ctx.beginPath()
-      ctx.arc(bx, by, 16, 0, Math.PI * 2)
-      ctx.arc(bx + 14, by + 6, 12, 0, Math.PI * 2)
-      ctx.arc(bx - 12, by + 7, 11, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.fillStyle = '#6a3d8a'
-      ctx.beginPath()
-      ctx.arc(bx, by + 4, 3, 0, Math.PI * 2)
-      ctx.arc(bx + 7, by + 8, 3, 0, Math.PI * 2)
-      ctx.fill()
+      ctx.moveTo(x, postY0)
+      ctx.lineTo(x, postY1)
+      ctx.stroke()
     }
-    bush(30, 70)
-    bush(VIEW.W - 34, 74)
-    bush(34, VIEW.H - 30)
-    bush(VIEW.W - 30, VIEW.H - 26)
-
-    // 競技場地面(土黃)
-    ctx.fillStyle = '#cdaa6a'
-    ctx.fillRect(A.x, A.y, A.w, A.h)
-    // 葡萄行條紋(直紋)
-    ctx.strokeStyle = 'rgba(120,92,52,0.32)'
-    ctx.lineWidth = 10
-    for (let x = A.x + 54; x < A.x + A.w; x += 82) {
+    // 拉線(兩條水平)
+    ctx.strokeStyle = 'rgba(120,92,52,0.6)'
+    ctx.lineWidth = 1.5
+    for (const wy of [postY0 + 22, postY0 + 52]) {
       ctx.beginPath()
-      ctx.moveTo(x, A.y + 10)
-      ctx.lineTo(x, A.y + A.h - 10)
+      ctx.moveTo(20, wy)
+      ctx.lineTo(VIEW.W - 20, wy)
+      ctx.stroke()
+    }
+    // 葡萄串(沿線掛,固定位置)
+    for (let x = 64; x < VIEW.W; x += 96) {
+      this._grapes(x, postY0 + 30, 1.05)
+      this._grapes(x - 30, postY0 + 60, 0.9)
+    }
+    // 下方葡萄園帶(較窄,只掛矮葡萄叢)
+    for (let x = 60; x < VIEW.W; x += 110) {
+      this._grapes(x, A.y + A.h + 12, 0.85)
+    }
+    ctx.restore()
+
+    // 競技場地面(土黃漸層 + 內陰影框)
+    const floor = ctx.createLinearGradient(0, A.y, 0, A.y + A.h)
+    floor.addColorStop(0, '#d8b676')
+    floor.addColorStop(1, '#c39e5f')
+    ctx.fillStyle = floor
+    ctx.fillRect(A.x, A.y, A.w, A.h)
+    // 耕作壟(交替亮暗直條,像犁過的葡萄園地)
+    for (let x = A.x; x < A.x + A.w; x += 40) {
+      ctx.fillStyle = 'rgba(120,92,52,0.10)'
+      ctx.fillRect(x, A.y, 20, A.h)
+    }
+    ctx.strokeStyle = 'rgba(110,84,46,0.28)'
+    ctx.lineWidth = 2
+    for (let x = A.x + 40; x < A.x + A.w; x += 40) {
+      ctx.beginPath()
+      ctx.moveTo(x, A.y + 8)
+      ctx.lineTo(x, A.y + A.h - 8)
       ctx.stroke()
     }
     // 土地細點(固定位置,不閃爍)
-    ctx.fillStyle = 'rgba(150,115,60,0.4)'
-    for (let i = 0; i < 44; i++) {
+    ctx.fillStyle = 'rgba(150,115,60,0.38)'
+    for (let i = 0; i < 60; i++) {
       const hx = A.x + 12 + ((i * 97) % (A.w - 24))
       const hy = A.y + 12 + ((i * 53) % (A.h - 24))
-      ctx.fillRect(hx, hy, 5, 3)
+      ctx.fillRect(hx, hy, 4, 2.5)
     }
+    // 地面內陰影(四邊向內壓暗,做出凹下的競技場感)
+    const inner = ctx.createLinearGradient(0, A.y, 0, A.y + 40)
+    inner.addColorStop(0, 'rgba(60,40,16,0.35)')
+    inner.addColorStop(1, 'rgba(60,40,16,0)')
+    ctx.fillStyle = inner
+    ctx.fillRect(A.x, A.y, A.w, 40)
 
-    // 邊牆(低矮泥磚框)
-    ctx.lineJoin = 'round'
-    ctx.strokeStyle = '#8a5e30'
-    ctx.lineWidth = 12
-    ctx.strokeRect(A.x, A.y, A.w, A.h)
+    // 石磚邊牆(分段磚塊 + 內外描邊)
+    ctx.fillStyle = '#7a5128'
+    // 厚度
+    const bw = 12
+    ctx.fillRect(A.x - bw, A.y - bw, A.w + bw * 2, bw) // 上
+    ctx.fillRect(A.x - bw, A.y + A.h, A.w + bw * 2, bw) // 下
+    ctx.fillRect(A.x - bw, A.y - bw, bw, A.h + bw * 2) // 左
+    ctx.fillRect(A.x + A.w, A.y - bw, bw, A.h + bw * 2) // 右
+    // 磚縫(沿上下邊每隔一段一條淺線)
+    ctx.strokeStyle = 'rgba(40,26,10,0.5)'
+    ctx.lineWidth = 1.5
+    for (let x = A.x - bw; x < A.x + A.w + bw; x += 26) {
+      ctx.beginPath()
+      ctx.moveTo(x, A.y - bw)
+      ctx.lineTo(x, A.y)
+      ctx.moveTo(x + 13, A.y + A.h)
+      ctx.lineTo(x + 13, A.y + A.h + bw)
+      ctx.stroke()
+    }
     ctx.strokeStyle = '#a8743c'
-    ctx.lineWidth = 4
-    ctx.strokeRect(A.x, A.y, A.w, A.h)
+    ctx.lineWidth = 3
+    ctx.strokeRect(A.x - 1, A.y - 1, A.w + 2, A.h + 2)
+
+    // 全畫面暗角(vignette),把視線收向中央
+    const vg = ctx.createRadialGradient(VIEW.W / 2, VIEW.H / 2, VIEW.H * 0.34, VIEW.W / 2, VIEW.H / 2, VIEW.W * 0.62)
+    vg.addColorStop(0, 'rgba(0,0,0,0)')
+    vg.addColorStop(1, 'rgba(0,0,0,0.32)')
+    ctx.fillStyle = vg
+    ctx.fillRect(0, 0, VIEW.W, VIEW.H)
   }
 
   _shadow(x, y, r) {
@@ -1301,35 +1382,76 @@ export class Renderer {
     const l = game.lion
     if (game.state !== 'fight' && game.state !== 'paused') return
 
-    for (let i = 0; i < s.hearts; i++) this._emoji('❤️', 34 + i * 38, 38, 30, 'middle')
+    // 心:滿格 ❤️、已失去的格用暗心墊底(看得出 目前/上限)
+    for (let i = 0; i < s.maxHearts; i++) {
+      const hx = 34 + i * 36
+      if (i >= s.hearts) {
+        ctx.globalAlpha = 0.32
+        this._emoji('🖤', hx, 38, 28, 'middle')
+        ctx.globalAlpha = 1
+      } else {
+        this._emoji('❤️', hx, 38, 30, 'middle')
+      }
+    }
 
-    const barW = 300
-    const barH = 18
+    // boss 血條:外框 + 漸層填色 + 內高光 + 分段刻度
+    const barW = 320
+    const barH = 20
     const bx = (VIEW.W - barW) / 2
-    const by = 26
-    const colors = ['#4caf50', '#ff9800', '#e53935']
-    ctx.fillStyle = 'rgba(20,12,4,0.5)'
-    roundRect(ctx, bx - 2, by - 2, barW + 4, barH + 4, 9)
+    const by = 30
+    // 外框底板
+    ctx.fillStyle = 'rgba(20,12,4,0.62)'
+    roundRect(ctx, bx - 4, by - 4, barW + 8, barH + 8, 11)
     ctx.fill()
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)'
+    ctx.lineWidth = 1.5
+    roundRect(ctx, bx - 4, by - 4, barW + 8, barH + 8, 11)
+    ctx.stroke()
+    // 空槽
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'
+    roundRect(ctx, bx, by, barW, barH, 8)
+    ctx.fill()
+    // 填色(依 phase 換色 + 上下漸層;死神模式暗紫)
     const hpFrac = Math.max(0, l.hp) / LION.maxHp
-    ctx.fillStyle = colors[l.phase()] || colors[0]
-    roundRect(ctx, bx, by, barW * hpFrac, barH, 8)
-    ctx.fill()
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)'
-    ctx.lineWidth = 2
-    for (let i = 1; i < LION.maxHp; i++) {
+    const pal = l.deathMode
+      ? ['#6a2da8', '#6a2da8', '#6a2da8']
+      : ['#5bc05f', '#ff9d2e', '#e8413a']
+    const top = pal[l.phase()] || pal[0]
+    if (hpFrac > 0) {
+      const fillW = barW * hpFrac
+      const grad = ctx.createLinearGradient(0, by, 0, by + barH)
+      grad.addColorStop(0, '#ffffff55')
+      grad.addColorStop(0.12, top)
+      grad.addColorStop(1, 'rgba(0,0,0,0.35)')
+      ctx.save()
+      roundRect(ctx, bx, by, barW, barH, 8)
+      ctx.clip()
+      ctx.fillStyle = top
+      ctx.fillRect(bx, by, fillW, barH)
+      ctx.fillStyle = grad
+      ctx.fillRect(bx, by, fillW, barH)
+      // 上緣高光條
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'
+      ctx.fillRect(bx, by + 2, fillW, 3)
+      ctx.restore()
+    }
+    // 分段刻度(每 5 點一條,避免 30 條太密)
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)'
+    ctx.lineWidth = 1
+    const tick = LION.maxHp > 12 ? 5 : 1
+    for (let i = tick; i < LION.maxHp; i += tick) {
       const xx = bx + (barW * i) / LION.maxHp
       ctx.beginPath()
-      ctx.moveTo(xx, by)
-      ctx.lineTo(xx, by + barH)
+      ctx.moveTo(xx, by + 2)
+      ctx.lineTo(xx, by + barH - 2)
       ctx.stroke()
     }
     const goal = (game.hudLabels && game.hudLabels.goal) || '少壯獅子'
-    ctx.fillStyle = '#f3ead0'
+    ctx.fillStyle = l.deathMode ? '#e3b6ff' : '#f3ead0'
     ctx.font = `700 15px ${FONT}`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'bottom'
-    ctx.fillText(`🦁 ${goal}`, VIEW.W / 2, by - 4)
+    ctx.fillText(`${l.deathMode ? '💀' : '🦁'} ${goal}`, VIEW.W / 2, by - 6)
 
     if (game.combo >= 2) {
       ctx.fillStyle = '#ffd27a'

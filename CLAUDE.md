@@ -37,6 +37,7 @@
 - **蜂窩補血(`HONEY`)**:場上每隔 `spawnMin~spawnMax`(6~11s 隨機=不定時)出現一個 🍯 蜂窩(場上最多 `maxOnField`,`life` 秒沒吃會閃爍後消失,不生在玩家腳下 `safeR`)。走過去(`HONEY.r`)補 `heal`(1)滴血,**滿血則不吃、留在場上**。由 `game.honeys[]` 自管(`_stepHoney`/`_spawnHoney`),呼應士 14:8-9「從死獅之內取蜜」。
 - **石頭反制(`ROCK`)**:場上不定時(`spawnMin~spawnMax`)出現灰石,玩家碰到(`ROCK.r`)→ 石頭自動**朝獅子扔出**(輕度追蹤確保命中)→ 砸中扣 `ROCK.damage`(1)血。由 `game.rocks[]`(`state:'ground'|'thrown'`)管理(`_stepRocks`),傷害走共用的 `_damageLion`(與反擊同一條路徑,含收尾與跨階段提示)。
 - 友善:參孫 `SAMSON.maxHearts`(目前 3)顆心、受擊無敵閃爍、失敗零懲罰乾淨重來。神學訊息(力量出於神的靈)在標題/勝利/蜂蜜彩蛋帶出。
+- **美術(`renderer.js` + `styles.css`)**:背景 `_bgArena` = 環場葡萄園(藤架柱+拉線+葡萄串 `_grapes`)、競技場乾淨耕作壟地、石磚邊牆、全畫面暗角;HUD = 漸層血條(依 phase/死神換色、分段刻度)+ 心(滿/暗心顯示上限);標題/勝利/失敗 DOM 卡片(`styles.css`)= 羊皮紙質感+金色裝飾線+進場動畫+經文引號。純向量/CSS 漸層,零美術檔、離線安全。
 
 ## 一檔一責
 

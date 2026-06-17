@@ -44,18 +44,35 @@ body {
 }
 .overlay.show {
   display: flex;
+  animation: overlayIn 0.25s ease both;
 }
 
 .card {
+  position: relative;
   width: min(580px, 94vw);
   max-height: 92vh;
   overflow: auto;
-  background: #fbf7ee;
+  /* 羊皮紙感:暖白 + 極淡葡萄園色暈 */
+  background: radial-gradient(120% 90% at 50% 0%, #fffdf7 0%, #f7efdf 70%, #f1e6cf 100%);
   border-radius: 18px;
-  padding: 28px 30px 26px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  padding: 30px 30px 26px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(200, 163, 90, 0.5),
+    inset 0 0 0 6px rgba(255, 255, 255, 0.6);
   text-align: center;
   color: var(--ink);
+  animation: cardIn 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+/* 卡片頂端金色裝飾線 */
+.card::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  width: 64px;
+  height: 4px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, #c8a35a, transparent);
 }
 
 .kicker {
@@ -72,8 +89,15 @@ body {
 }
 
 .card h1 {
-  font-size: 34px;
-  margin: 8px 0 2px;
+  font-size: 36px;
+  margin: 10px 0 2px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #8a5a1e, #c0612a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 .card h2 {
   font-size: 24px;
@@ -92,15 +116,28 @@ body {
 }
 
 .verse {
+  position: relative;
   text-align: left;
-  background: #f1e7cf;
+  background: #f3e9d1;
   border-left: 4px solid #c8a35a;
-  padding: 12px 14px;
+  padding: 14px 16px 14px 18px;
   border-radius: 8px;
   line-height: 1.85;
   font-size: 15px;
   color: #5a4a2a;
-  margin: 12px 0;
+  margin: 14px 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+/* 經文左上角的裝飾引號 */
+.verse::before {
+  content: "\201C";
+  position: absolute;
+  left: 6px;
+  top: -6px;
+  font-size: 34px;
+  line-height: 1;
+  color: rgba(200, 163, 90, 0.45);
+  font-family: Georgia, "Noto Serif TC", serif;
 }
 .verse .ref {
   display: block;
@@ -239,5 +276,31 @@ body {
   }
   50% {
     transform: rotate(78deg);
+  }
+}
+
+/* 覆蓋層 / 卡片進場動畫 */
+@keyframes overlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .overlay.show,
+  .card {
+    animation: none;
   }
 }
