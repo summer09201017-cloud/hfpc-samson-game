@@ -141,14 +141,18 @@ export class Game {
       }
     }
     const mv = this.input.moveVector()
+    const running = this.input.isRunning()
 
     const prevLionState = l.state
-    s.update(dt, mv.x, mv.y)
+    const prevClaw = l.claw.state
+    s.update(dt, mv.x, mv.y, running)
     l.update(dt, s)
 
     if (l.state === 'telegraph' && prevLionState !== 'telegraph') {
       Audio.sfx('roar', { big: l.phase() > 0 })
     }
+    if (l.claw.state === 'warn' && prevClaw === 'idle') Audio.sfx('roar', { big: true }) // 大爪擊預警
+    if (l.claw.state === 'strike' && prevClaw === 'warn') Audio.sfx('dodge') // 斬擊揮下的破風聲
 
     const d = Math.hypot(l.x - s.x, l.y - s.y)
 
@@ -163,11 +167,45 @@ export class Game {
       }
     }
 
+    // A2) 第二階段:踩到捕獸夾受傷(警示期 fangWarn 內不傷人,彈出後才傷人;受擊無敵期間免疫)
+    if (s.invuln <= 0 && l.fangs.length) {
+      const hitR = LION.fangR + SAMSON.r
+      for (const f of l.fangs) {
+        if (f.t >= LION.fangWarn && Math.hypot(f.x - s.x, f.y - s.y) < hitR) {
+          s.hurt(f.x, f.y)
+          this.fx.hurtT = 0.4
+          Audio.sfx('hit')
+          if (s.hearts <= 0) {
+            this.gameOver()
+            return
+          }
+          break
+        }
+      }
+    }
+
+    // A3) 大範圍爪擊:斬擊揮下(strike)時,玩家落在線的半寬內 → 受傷(受擊無敵期間免疫)
+    if (l.claw.state === 'strike' && s.invuln <= 0) {
+      if (l.clawPerpDist(s.x, s.y) < LION.clawHalfWidth + SAMSON.r) {
+        const proj = (s.x - l.claw.x) * l.claw.dx + (s.y - l.claw.y) * l.claw.dy
+        const footX = l.claw.x + l.claw.dx * proj // 線上離玩家最近的點
+        const footY = l.claw.y + l.claw.dy * proj
+        s.hurt(footX, footY) // 往垂直方向把玩家推離斬擊線
+        this.fx.hurtT = 0.4
+        Audio.sfx('hit')
+        if (s.hearts <= 0) {
+          this.gameOver()
+          return
+        }
+      }
+    }
+
     // B) 參孫反擊(靠近 + 出手有效窗 + 獅子露破綻)
     if (s.attackActive() && !s.attackedThisSwing && d < SAMSON.attackReach) {
       s.attackedThisSwing = true
       if (l.open) {
         const before = l.phase()
+        const hpBefore = l.hp
         l.hit()
         this.combo += 1
         this.fx.hitT = 0.35
@@ -176,7 +214,15 @@ export class Game {
           this.enterFinisher()
           return
         }
-        if (l.phase() !== before) Audio.sfx('roar', { big: true })
+        // 一次性提示:剛跨入新階段(爪擊 hp<=15 / 捕獸夾 hp<10)→ 大吼 + 閃光
+        const crossedClaw = hpBefore > LION.clawHpThreshold && l.hp <= LION.clawHpThreshold
+        const crossedFang = hpBefore >= LION.fangHpThreshold && l.hp < LION.fangHpThreshold
+        if (crossedClaw || crossedFang) {
+          l.flash = 0.4
+          Audio.sfx('roar', { big: true })
+        } else if (l.phase() !== before) {
+          Audio.sfx('roar', { big: true })
+        }
       } else {
         this.combo = 0
         Audio.sfx('clash', { weak: true }) // 沒抓到破綻:被擋開

@@ -86,6 +86,153 @@ export class Renderer {
       ctx.setLineDash([])
     }
 
+    // 第二階段:捕獸夾。先在地上顯示警示提示(fangWarn,無傷),時間到才彈出捕獸夾(傷人)。
+    for (const f of l.fangs) {
+      const R = LION.fangR
+      ctx.save()
+      ctx.translate(f.x, f.y)
+      if (f.t < LION.fangWarn) {
+        // —— 警示期:紅色目標圈(逐漸收緊 + 脈動 + 中央十字),告訴你捕獸夾要在這裡彈出 ——
+        const prog = f.t / LION.fangWarn
+        const pulse = 0.4 + 0.45 * Math.abs(Math.sin(t * 10))
+        ctx.globalAlpha = 0.16 + 0.24 * prog
+        ctx.fillStyle = '#d23228'
+        ctx.beginPath()
+        ctx.arc(0, 0, R * 0.95, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.globalAlpha = pulse
+        ctx.strokeStyle = '#d23228'
+        ctx.lineWidth = 2.5
+        ctx.setLineDash([5, 5])
+        ctx.beginPath()
+        ctx.arc(0, 0, R * (1.35 - 0.35 * prog), 0, Math.PI * 2) // 收緊 → 快彈出
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.globalAlpha = 0.55 + 0.35 * prog
+        ctx.strokeStyle = '#fff'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(-7, 0)
+        ctx.lineTo(7, 0)
+        ctx.moveTo(0, -7)
+        ctx.lineTo(0, 7)
+        ctx.stroke()
+      } else {
+        // —— 出現期:俯視「捕獸夾」(set 狀態:鋼底盤 + 兩側彈簧 + 鋸齒環 + 中央踏板)——
+        const age2 = f.t - LION.fangWarn
+        const pop = Math.min(1, age2 / 0.12) // 彈出
+        const fade = age2 > LION.fangLife - 0.6 ? Math.max(0, (LION.fangLife - age2) / 0.6) : 1
+        const rr = R * (0.82 + 0.18 * pop)
+        ctx.globalAlpha = fade
+        // 陰影
+        ctx.fillStyle = 'rgba(0,0,0,0.30)'
+        ctx.beginPath()
+        ctx.ellipse(0, rr * 0.3, rr * 1.1, rr * 0.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // 兩側彈簧(左右小圓)
+        ctx.fillStyle = '#8b9097'
+        for (const sgn of [-1, 1]) {
+          ctx.beginPath()
+          ctx.arc(sgn * rr * 1.05, 0, rr * 0.3, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        // 鋼底盤
+        ctx.fillStyle = '#6b7077'
+        ctx.beginPath()
+        ctx.arc(0, 0, rr, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#3c4045'
+        ctx.beginPath()
+        ctx.arc(0, 0, rr * 0.72, 0, Math.PI * 2)
+        ctx.fill()
+        // 鋸齒環(指向中心;左右留鉸鏈缺口 → 看起來是兩片夾顎)
+        ctx.fillStyle = '#eef2f6'
+        const N = 12
+        for (let k = 0; k < N; k++) {
+          const ang = (k / N) * Math.PI * 2
+          const norm = Math.atan2(Math.sin(ang), Math.cos(ang))
+          if (Math.abs(norm) < 0.4 || Math.abs(Math.abs(norm) - Math.PI) < 0.4) continue // 鉸鏈缺口
+          const half = 0.17
+          const baseR = rr * 0.95
+          const tipR = rr * 0.5
+          ctx.beginPath()
+          ctx.moveTo(Math.cos(ang - half) * baseR, Math.sin(ang - half) * baseR)
+          ctx.lineTo(Math.cos(ang + half) * baseR, Math.sin(ang + half) * baseR)
+          ctx.lineTo(Math.cos(ang) * tipR, Math.sin(ang) * tipR)
+          ctx.closePath()
+          ctx.fill()
+        }
+        // 中央踏板(觸發盤)
+        ctx.fillStyle = '#2b2e33'
+        ctx.beginPath()
+        ctx.arc(0, 0, rr * 0.28, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#a8324a'
+        ctx.beginPath()
+        ctx.arc(0, 0, rr * 0.12, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.restore()
+    }
+    ctx.globalAlpha = 1
+
+    // 大範圍爪擊:warn = 沿線的紅色預警(穿過全場、會越來越亮);strike = 沿線揮下的亮白斬擊 + 三道爪痕。
+    const cl = l.claw
+    if (cl.state === 'warn' || cl.state === 'strike') {
+      const L = 1200
+      const x1 = cl.x - cl.dx * L
+      const y1 = cl.y - cl.dy * L
+      const x2 = cl.x + cl.dx * L
+      const y2 = cl.y + cl.dy * L
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(ARENA.x, ARENA.y, ARENA.w, ARENA.h) // 限制在場內
+      ctx.clip()
+      ctx.lineCap = 'butt'
+      if (cl.state === 'warn') {
+        const prog = cl.t / LION.clawTelegraph
+        const pulse = 0.4 + 0.5 * Math.abs(Math.sin(t * 12))
+        // 半寬警示帶(會被掃到的範圍)
+        ctx.globalAlpha = 0.1 + 0.16 * prog
+        ctx.strokeStyle = '#d23228'
+        ctx.lineWidth = LION.clawHalfWidth * 2
+        ctx.beginPath()
+        ctx.moveTo(x1, y1)
+        ctx.lineTo(x2, y2)
+        ctx.stroke()
+        // 中央紅線(越接近揮下越亮越粗)
+        ctx.globalAlpha = 0.5 + 0.5 * prog * pulse
+        ctx.lineWidth = 3 + 4 * prog
+        ctx.beginPath()
+        ctx.moveTo(x1, y1)
+        ctx.lineTo(x2, y2)
+        ctx.stroke()
+      } else {
+        // strike:亮白主刃快速淡出
+        const k = cl.t / LION.clawStrike // 0..1
+        ctx.globalAlpha = Math.max(0, 1 - k)
+        ctx.strokeStyle = '#fff'
+        ctx.lineWidth = LION.clawHalfWidth * 2 * (1 - 0.3 * k)
+        ctx.beginPath()
+        ctx.moveTo(x1, y1)
+        ctx.lineTo(x2, y2)
+        ctx.stroke()
+        // 三道爪痕(沿法線偏移)
+        ctx.strokeStyle = 'rgba(210,50,40,0.92)'
+        ctx.lineWidth = 4
+        for (const off of [-18, 0, 18]) {
+          const ox = -cl.dy * off
+          const oy = cl.dx * off
+          ctx.beginPath()
+          ctx.moveTo(x1 + ox, y1 + oy)
+          ctx.lineTo(x2 + ox, y2 + oy)
+          ctx.stroke()
+        }
+      }
+      ctx.restore()
+      ctx.globalAlpha = 1
+    }
+
     // 依 y 排序前後(y 大的在前/下方)
     const drawSamson = () => {
       const blink = s.invuln > 0 && Math.floor(s.invuln * 12) % 2 === 0 && game.state === 'fight'

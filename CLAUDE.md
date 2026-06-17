@@ -25,10 +25,12 @@
 玩家:                                          ↑ 看到 ⚠ 就持續走位          ↑ 牠撲出後仍要側身離開那條直線   ↑ 趁破綻靠近反擊
 ```
 
-- **走位即閃避**:WASD / 方向鍵(或觸控拖曳 = 虛擬搖桿)在場內自由移動。獅子 `telegraph` 期間紅線**追著參孫轉**(`lion._aimAt` 每幀更新衝刺方向),但在撲出前 `LION.aimLockLead`(預設 0.2 秒)**停止追蹤、把方向定住**(`l.aimLocked`,紅線由虛線轉亮實線)——給玩家公平的閃避窗:看到紅線停住就側身讓開。**沒有翻滾、沒有 i-frames**——唯一的無敵是受擊後的閃爍(`SAMSON.invulnTime`)。只有 `charge` 會撞傷參孫(`LION.contactR`),走近不會。
+- **走位即閃避**:WASD / 方向鍵(或觸控拖曳 = 虛擬搖桿)在場內自由移動,**按住 Shift 奔跑**(`SAMSON.runMultiplier`,出手中不奔跑)。獅子 `telegraph` 期間紅線**追著參孫轉**(`lion._aimAt` 每幀更新衝刺方向),但在撲出前 `LION.aimLockLead`(預設 0.2 秒)**停止追蹤、把方向定住**(`l.aimLocked`,紅線由虛線轉亮實線)——給玩家公平的閃避窗:看到紅線停住就側身讓開。**沒有翻滾、沒有 i-frames**——唯一的無敵是受擊後的閃爍(`SAMSON.invulnTime`)。只有 `charge` 會撞傷參孫(`LION.contactR`),走近不會。
 - **反擊**:空白/Enter/J/K/F,或**輕點畫面**(短按未拖曳)→ 出手。需同時滿足:靠近獅子(`SAMSON.attackReach`)+ 落在出手有效窗(`SAMSON.attackActive`)+ **獅子在 `open`(recovery 破綻窗)**才算數,扣 1 滴血;沒抓到破綻會被擋開(combo 歸零)。
-- 反擊 `LION.maxHp`(預設 6)下 → 觸發「撕裂」收尾(`enterFinisher`),神的靈光暈 + 經文淡入 → 過關。
-- 友善:參孫 5 顆心、受擊無敵閃爍、失敗零懲罰乾淨重來。神學訊息(力量出於神的靈)在標題/勝利/蜂蜜彩蛋帶出。
+- **大範圍爪擊(血量 ≤ `LION.clawHpThreshold`,預設 15)**:`lion.claw` 子狀態機 `idle→warn→strike`。每隔 `clawGap`(2.5s)起一次:`warn` 期在地上顯示一條**穿過全場的紅線**(進 warn 時定住:穿過當下玩家位置、方向由獅子指向玩家),`clawTelegraph`(3s)後進 `strike`——沿線揮下斬擊 `clawStrike`(0.28s)。玩家到線的**垂直距 < `clawHalfWidth`(46)+ 半徑**才會被打(往垂直方向走開即閃過)。判定在 `game.js`(用 `lion.clawPerpDist`),繪製在 `renderer.js`(限制在 `ARENA` 內)。
+- **第二階段(血量 < `LION.fangHpThreshold`,預設 10)**:獅子每 `fangInterval`(2 秒)在場上放一個**捕獸夾**。每個生命週期:先在地上顯示 `fangWarn`(0.8 秒)**警示提示**(收緊的紅色目標圈+十字,無傷)→ 捕獸夾**彈出**並傷人 `fangLife`(5 秒)→ 消失。彈出後踩到扣 1 心(吃受擊無敵)。由 `lion.fangs[]`(每個 `{x,y,t}`,`t`=已存在秒數)自持:spawn/老化/cull 在 `lion._updateFangs`(總壽命 = `fangWarn+fangLife`),碰撞判定在 `game.js`(`f.t >= fangWarn` 才傷人),捕獸夾向量繪製在 `renderer.js`。不會生在玩家腳下(`fangSafeR`)。
+- 反擊 `LION.maxHp`(目前 20)下 → 觸發「撕裂」收尾(`enterFinisher`),神的靈光暈 + 經文淡入 → 過關。
+- 友善:參孫 `SAMSON.maxHearts`(目前 3)顆心、受擊無敵閃爍、失敗零懲罰乾淨重來。神學訊息(力量出於神的靈)在標題/勝利/蜂蜜彩蛋帶出。
 
 ## 一檔一責
 

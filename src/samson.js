@@ -16,6 +16,7 @@ export class Samson {
     this.invuln = 0
     this.face = 1 // -1 朝左 / 1 朝右(畫圖用)
     this.moving = false
+    this.running = false // 是否正在奔跑(Shift)
     this.walkPhase = 0 // 走路動畫相位
     this.action = 'idle' // idle / attack
     this.actionT = 0
@@ -50,8 +51,8 @@ export class Samson {
     this._clamp()
   }
 
-  // mvx, mvy:輸入的移動向量(已大致正規化,長度 0..1)
-  update(dt, mvx, mvy) {
+  // mvx, mvy:輸入的移動向量(已大致正規化,長度 0..1);running:按住 Shift 奔跑
+  update(dt, mvx, mvy, running = false) {
     if (this.invuln > 0) this.invuln -= dt
     if (this.cooldown > 0) this.cooldown -= dt
 
@@ -61,6 +62,9 @@ export class Samson {
       vx *= 0.22 // 出手時幾乎定住
       vy *= 0.22
     }
+    // 出手中不奔跑(保持出手定住的手感);其餘時候按住 Shift 加速
+    const runMul = running && this.action !== 'attack' ? SAMSON.runMultiplier : 1
+    this.running = false
     let len = Math.hypot(vx, vy)
     this.moving = len > 0.05
     if (len > 0.0001) {
@@ -70,9 +74,10 @@ export class Samson {
         len = 1
       }
       if (Math.abs(mvx) > 0.05) this.face = mvx < 0 ? -1 : 1
-      this.x += vx * SAMSON.speed * dt
-      this.y += vy * SAMSON.speed * dt
-      this.walkPhase += dt * len * 11
+      this.x += vx * SAMSON.speed * runMul * dt
+      this.y += vy * SAMSON.speed * runMul * dt
+      this.walkPhase += dt * len * 11 * runMul // 奔跑時腿擺動也加快
+      this.running = runMul > 1 // 給 renderer 用(可畫奔跑特效)
       this._clamp()
     }
 

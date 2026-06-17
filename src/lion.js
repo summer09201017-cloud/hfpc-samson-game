@@ -26,6 +26,15 @@ export class Lion {
     this.aimLocked = false // telegraph 末段:紅線方向已定住(不再追蹤玩家)
     this.face = -1 // 畫圖朝向(-1 朝左 / 1 朝右)
     this.chargeLeft = 0
+    this.fangs = [] // 第二階段地上的捕獸夾:{ x, y, t }(t = 已存在秒數)
+    this._fangTimer = 0
+    // 大範圍爪擊(血量 <= clawHpThreshold):state = idle(等待)/ warn(紅線預警)/ strike(揮下)
+    this.claw = { state: 'idle', t: 0, x: 0, y: 0, dx: 1, dy: 0 }
+  }
+
+  // 第二階段(血量 < fangHpThreshold):每 fangInterval 秒放一根尖牙,每根 fangLife 秒後消失
+  inStage2() {
+    return this.hp < LION.fangHpThreshold
   }
 
   phase() {
@@ -45,6 +54,8 @@ export class Lion {
 
   update(dt, s) {
     if (this.flash > 0) this.flash -= dt
+    this._updateFangs(dt, s)
+    this._updateClaw(dt, s)
     const c = this.cfg()
     this.t += dt
     const d = Math.hypot(s.x - this.x, s.y - this.y)
@@ -104,6 +115,79 @@ export class Lion {
     this.dirX = Math.cos(a)
     this.dirY = Math.sin(a)
     this.face = s.x < this.x ? -1 : 1
+  }
+
+  // 第二階段尖牙:老化 + 移除過期 + 依間隔生成(碰撞與繪製分別在 game.js / renderer.js)
+  _updateFangs(dt, s) {
+    if (this.fangs.length) {
+      for (const f of this.fangs) f.t += dt
+      // 總壽命 = 警示期 + 出現期;過了才移除
+      this.fangs = this.fangs.filter((f) => f.t < LION.fangWarn + LION.fangLife)
+    }
+    if (!this.inStage2()) {
+      this._fangTimer = 0
+      return
+    }
+    this._fangTimer += dt
+    if (this._fangTimer >= LION.fangInterval) {
+      this._fangTimer -= LION.fangInterval
+      this.fangs.push(this._spawnFang(s))
+    }
+  }
+
+  // 在場內隨機位置生成一根尖牙,但避開玩家腳下(fangSafeR 內)以求公平
+  _spawnFang(s) {
+    const minX = ARENA.x + 34
+    const maxX = ARENA.x + ARENA.w - 34
+    const minY = ARENA.y + 34
+    const maxY = ARENA.y + ARENA.h - 34
+    let x = minX
+    let y = minY
+    for (let i = 0; i < 8; i++) {
+      x = minX + Math.random() * (maxX - minX)
+      y = minY + Math.random() * (maxY - minY)
+      if (Math.hypot(x - s.x, y - s.y) >= LION.fangSafeR) break
+    }
+    return { x, y, t: 0 }
+  }
+
+  // 大範圍爪擊狀態機(idle → warn → strike → idle)。紅線在進入 warn 時定住,不再追蹤。
+  _updateClaw(dt, s) {
+    const cl = this.claw
+    if (this.hp > LION.clawHpThreshold) {
+      cl.state = 'idle'
+      cl.t = 0
+      return
+    }
+    cl.t += dt
+    if (cl.state === 'idle') {
+      if (cl.t >= LION.clawGap) {
+        cl.state = 'warn'
+        cl.t = 0
+        // 紅線:穿過此刻玩家位置,方向由獅子指向玩家(之後定住,給 3 秒往垂直方向閃)
+        const a = Math.atan2(s.y - this.y, s.x - this.x)
+        cl.dx = Math.cos(a)
+        cl.dy = Math.sin(a)
+        cl.x = s.x
+        cl.y = s.y
+      }
+    } else if (cl.state === 'warn') {
+      if (cl.t >= LION.clawTelegraph) {
+        cl.state = 'strike'
+        cl.t = 0
+      }
+    } else if (cl.state === 'strike') {
+      if (cl.t >= LION.clawStrike) {
+        cl.state = 'idle'
+        cl.t = 0
+      }
+    }
+  }
+
+  // 玩家中心到爪擊線的垂直距離(線:過 (claw.x,claw.y)、單位方向 (claw.dx,claw.dy))
+  clawPerpDist(px, py) {
+    const cl = this.claw
+    return Math.abs((px - cl.x) * -cl.dy + (py - cl.y) * cl.dx)
   }
 
   _moveToward(tx, ty, step) {

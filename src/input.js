@@ -12,6 +12,7 @@ export class Input {
     this.down = false
     this.left = false
     this.right = false
+    this.run = false // 按住 Shift = 奔跑(持續狀態,非邊緣訊號)
     this.attackQueued = false
     this.pauseQueued = false
     this.muteQueued = false
@@ -73,10 +74,18 @@ export class Input {
         case 'KeyM':
           this.muteQueued = true
           break
+        case 'ShiftLeft':
+        case 'ShiftRight':
+          this.run = true
+          break
       }
     }
     this._onKeyUp = (e) => {
       switch (e.code) {
+        case 'ShiftLeft':
+        case 'ShiftRight':
+          this.run = false
+          break
         case 'ArrowUp':
         case 'KeyW':
           this.up = false
@@ -143,6 +152,7 @@ export class Input {
     }
     this._onBlur = () => {
       this.up = this.down = this.left = this.right = false
+      this.run = false
       this.touchActive = false
       this.touchMvx = 0
       this.touchMvy = 0
@@ -186,6 +196,11 @@ export class Input {
       y /= len
     }
     return { x, y }
+  }
+
+  // 是否按住奔跑(持續狀態,像 moveVector 一樣每幀讀,不 consume)
+  isRunning() {
+    return this.run
   }
 
   consumeAttack() {
