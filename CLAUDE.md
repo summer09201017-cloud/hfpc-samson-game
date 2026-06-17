@@ -3,18 +3,19 @@
 單一動作關的聖經小遊戲:**參孫打獅子**(士師記 14:5-6)。純 vanilla ES modules + Canvas,
 零執行期相依、Web Audio 合成音效、可離線(PWA)。架構沿用「約拿闖關」引擎(arcade-game-kit)。
 
-## 現況(2026-06-17)— 已完成 vs 待做
+## 現況(2026-06-18)— 已完成 vs 待做
 
 **✅ 已完成、已上線**
-- 完整單一動作關(俯視角競技場走位 boss 戰),`npm test` / `npm run test:offline` 全綠。
-- **已部署**:https://hfpc-samson-game.netlify.app(首頁/入口JS/經文/SW/manifest 皆 200 驗證)。
-- **GitHub**:`summer09201017-cloud/hfpc-samson-game`(public)。
-- **已進大廳**:`hfpc-bible-games` 戰爭闖關合輯第 6 關,卡片已點亮(PR #6,待 merge 進 main 才在線上正式大廳亮)。
-- 文件已對齊實作(本檔、README、記憶);telegraph 紅線追蹤 + 撲出前 0.2s 鎖定(`LION.aimLockLead`)。
+- 完整 boss 戰生態:走位閃避 + 蜂窩補血/石頭反制 + 神蹟閃電/最後狂暴 + 捕獸夾/大範圍爪擊 + 墮落/地獄(死神)模式 + 壞結局。`npm test` / `npm run test:offline` 全綠。
+- 美術全面升級(零美術檔):背景葡萄園、HUD 漸層血條/心、標題勝負羊皮紙卡片、向量參孫/獅子(3/4 透視)/黑手/煙/閃電。
+- **已部署**:https://hfpc-samson-game.netlify.app(資產 200 驗證)。**GitHub**:`summer09201017-cloud/hfpc-samson-game`(public)。
+- **已進大廳**:`hfpc-bible-games` 戰爭闖關合輯第 6 關,**PR #6 已 merge、線上大廳卡片已亮**。
+- 文件已對齊實作(本檔、README、roadmap、記憶);`.claude/settings.json` 有 doc-sync hook(改玩法檔自動提醒同步文件)。
+- **Skill 合輯一鍵跨機安裝**:私有 repo `hfpc-claude-skills`(31 skill + `/sync-skills`、`/ship-check` 指令 + `bible-game-reviewer` agent)。換機用 `/plugin` 或 `install.bat`。
 
-**🔜 真正待做** → 細節與優先序見 **`roadmap.md`**(按 CP 值 × 開發時間排序)。一句話:核心已完整可上課;待做都是「加值」,非必要。
+**🔜 真正待做** → 細節與優先序見 **`roadmap.md`**(按 CP 值 × 開發時間排序)。一句話:核心已完整可上課;**唯一較急的是難度選單**(這輪堆了 30 血/3 心/地獄,對小小孩偏硬),其餘都是加值。
 
-**交接**:另一台 PC 接手請先讀 `讀我-HANDOFF.txt`。
+**交接**:另一台 PC 接手請先讀 `讀我-HANDOFF.txt`(含「一鍵裝齊所有 skill」)。
 
 ## 玩法核心(俯視角競技場 boss 戰)
 
@@ -76,6 +77,8 @@ renderer 量 `canvas.parentElement` 等比縮放置中。
 - 新增 `src/` 模組時,記得加進 `public/sw.js` 的 `CORE` 預快取清單(`npm run test:offline` 會檢查)。
 - **改玩法 = 同一個 commit 內同步更新文件**:本檔「玩法核心」、`README.md` 操作表、`roadmap.md`、以及自動記憶。本專案曾發生文件描述「對峙固定站位+翻滾 i-frames」但實作早已是「俯視角走位、無翻滾」,害老師會教錯——避免再脫節。
 - **上架/部署流程**走 skill `ship-game-online`(git→GitHub→Netlify→curl 驗證→點亮大廳卡);大廳卡片走 skill `add-to-collection`。`site/` 不入庫,Netlify 端 `npm run build` 重建。
+- **`.claude/settings.json` 有 PostToolUse hook**(`scripts/doc-sync-hook.mjs`):改到 `src/*.js` 玩法/文案/狀態機檔時,提醒同步文件。非阻斷、只印一行;不想要可刪 `.claude/settings.json`。
+- **工具**:`/ship-check`(上課前體檢:測試+curl 驗證線上)、`/sync-skills`(同步 skill 合輯並推送)、`bible-game-reviewer` agent(審關卡能否放心給孩子)。這些隨 skill 合輯 `hfpc-claude-skills` 走;裝法見 `讀我-HANDOFF.txt`。
 
 ## 指令
 
