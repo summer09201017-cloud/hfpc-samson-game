@@ -70,15 +70,40 @@
   3. 勝利經文語音朗讀(Web Speech API,還不識字的孩子也能領受)。
 
 
-跨專案 Skills(這次新做的)
----------------------------
-這次做了兩個可重用的跨專案 skill,副本放在 handoff/skills/(隨 repo 帶過來):
-  - add-to-collection  把一關加進大廳合輯卡片
-  - ship-game-online   單機遊戲一條龍上架(git→GitHub→Netlify→驗證→點亮卡)
+跨專案 Skills:一鍵裝齊全部(★ 換機必看)
+------------------------------------------
+Skill 真正生效在「使用者層」~/.claude/skills/,是機器本地、不會跟著任何 repo 走。
+所有自製 skill(目前 30 個:遊戲引擎、闖關設計、卡片關、各式機制、神學、驗證/部署、
+本遊戲新做的 蜂窩石頭/神蹟狂暴/地獄壞結局/向量美術 等)已打包成一個私有 repo,
+換 PC / agape250 那台可「一鍵裝齊」:
 
-★ Skill 真正生效在「使用者層」~/.claude/skills/,不會跟著 repo 走。
-  另一台 PC 要用,先把 handoff/skills/ 裡那兩個資料夾複製到
-  C:\Users\<你>\.claude\skills\ 對應路徑(說明見 handoff/skills/README.md)。
+  Skill 合輯 repo(私有):
+    https://github.com/summer09201017-cloud/hfpc-claude-skills
+
+  方式 B(推薦,Claude 原生、可更新):在 Claude Code 裡輸入
+    /plugin marketplace add summer09201017-cloud/hfpc-claude-skills
+    /plugin install hfpc-bible-game-skills@hfpc-skills
+    之後更新:/plugin marketplace update hfpc-skills
+
+  方式 A(零門檻,雙擊即裝):
+    git clone https://github.com/summer09201017-cloud/hfpc-claude-skills.git
+    然後雙擊 install.bat(Windows)或 bash install.sh(Mac/Linux/Git Bash)
+    → 自動複製進 ~/.claude/skills/,重開 Claude 即可。
+
+  ※ 私有 repo:新機要先 gh auth login(或用 GitHub 帳號登入)才能 clone/裝市集。
+  ※ 新增/改 skill 的流程:在來源機 ~/.claude/skills 編好 → 同步進該 repo 的
+     plugins/hfpc-skills/skills/ → git push;其他機 /plugin marketplace update
+     或 git pull 後重跑 install。
+
+本遊戲特別相關的 skill:
+  ship-game-online      單機遊戲一條龍上架(git→GitHub→Netlify→驗證→點亮卡)
+  add-to-collection     把一關加進大廳合輯卡片
+  arcade-game-kit       零相依 Canvas 闖關引擎(本遊戲的底)
+  arena-pickups-hazards / boss-escalation / corruption-bad-ending /
+  canvas-vector-characters  ← 本遊戲這幾輪做出來的機制與美術,已抽成可重用 skill
+
+(備援:repo 內 handoff/skills/ 還留著 add-to-collection、ship-game-online 兩個副本,
+ 萬一上面的合輯 repo 連不上時可手動複製;但正常請用上面的一鍵方式。)
 
 
 關聯專案
