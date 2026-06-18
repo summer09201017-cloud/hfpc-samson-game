@@ -623,21 +623,19 @@ export class Renderer {
       this._smokePuff(cx, cy, 34 + 14 * Math.sin(t * 1.5 + i * 2), 0.55 * gather)
     }
 
-    // 漆黑細長的手:從右側黑霧深處「緩緩」伸出,手指收攏到心臟位置
+    // 漆黑細長的手:從右側黑霧深處的「固定根部」伸長出去,手指收攏到心臟位置
     if (reach > 0) {
-      const startX = s.x + 300 // 從更遠處伸來 → 伸入距離更長
-      const startY = s.y - 8
-      // 手掌位置:略在心臟後方(讓手指能往前包住心臟)
-      const palmX = startX + (heartX + 22 - startX) * reach
-      const palmY = startY + (heartY - startY) * reach
-      const handAng = Math.atan2(heartY - palmY, heartX - palmX) // 手指朝向心臟
-      // 手腕後方「另一團濃煙」:手從這團煙裡伸出來
-      const rootX = palmX - Math.cos(handAng) * 64
-      const rootY = palmY - Math.sin(handAng) * 64
-      this._smokePuff(rootX, rootY, 60, 0.8)
-      this._smokePuff(rootX + 14, rootY - 10, 40, 0.7)
-      this._smokePuff(rootX - 10, rootY + 14, 44, 0.7)
-      this._shadowHand(palmX, palmY, handAng, grip)
+      // ★ 根部固定不動(在右側深處的一團濃煙裡);手臂只「伸長」、不整支平移
+      const rootX = s.x + 300
+      const rootY = s.y - 8
+      // 手掌位置:由固定根部往心臟推進(reach 0→1 = 伸長過去)
+      const palmX = rootX + (heartX + 22 - rootX) * reach
+      const palmY = rootY + (heartY - rootY) * reach
+      // 固定不動的根部濃煙(手從這團煙裡伸出來)
+      this._smokePuff(rootX, rootY, 64, 0.85)
+      this._smokePuff(rootX + 16, rootY - 12, 46, 0.7)
+      this._smokePuff(rootX - 12, rootY + 16, 50, 0.7)
+      this._shadowHand(rootX, rootY, palmX, palmY, grip)
 
       // 心臟(被捏住 → 收縮 + 裂痕)
       const beat = 1 - 0.18 * Math.abs(Math.sin(t * 6))
@@ -696,26 +694,38 @@ export class Renderer {
     ctx.fill()
   }
 
-  // 漆黑的手(從黑霧伸出抓心臟):本地 +x = 手指朝向。grip 0→1 = 從張開到收攏抓握。
-  _shadowHand(px, py, ang, grip) {
+  // 漆黑的手(從「固定根部」伸長出去抓心臟):手臂從 (rootX,rootY) 伸到手掌 (px,py)——
+  // 根部不動,只有手臂變長、手掌前進(不是整支手平移)。grip 0→1 = 張開→收攏抓握。
+  _shadowHand(rootX, rootY, px, py, grip) {
     const ctx = this.ctx
     const DARK = '#04020a'
     const EDGE = '#171327'
+    const ang = Math.atan2(py - rootY, px - rootX)
+    const dist = Math.hypot(px - rootX, py - rootY)
+
+    // 前臂:從固定根部「伸長」到手掌(長度 = dist,隨手前進而變長;根部較細、近掌較粗)
+    ctx.save()
+    ctx.translate(rootX, rootY)
+    ctx.rotate(ang)
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+    ctx.fillStyle = DARK
+    ctx.beginPath()
+    ctx.moveTo(0, -4)
+    ctx.quadraticCurveTo(dist * 0.5, -7, dist, -8) // 上緣
+    ctx.lineTo(dist, 8)
+    ctx.quadraticCurveTo(dist * 0.5, 7, 0, 4) // 下緣
+    ctx.closePath()
+    ctx.fill()
+    ctx.restore()
+
+    // 手掌 + 手指:在手掌位置,本地 +x = 手指朝向(= ang)
     ctx.save()
     ctx.translate(px, py)
     ctx.rotate(ang)
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
-
-    // 前臂 + 手腕(自後方黑霧伸來,往 -x 延伸並收細)
     ctx.fillStyle = DARK
-    ctx.beginPath()
-    ctx.moveTo(-58, -6)
-    ctx.quadraticCurveTo(-30, -9, -6, -8) // 上緣
-    ctx.lineTo(-6, 8)
-    ctx.quadraticCurveTo(-30, 9, -58, 6) // 下緣
-    ctx.closePath()
-    ctx.fill()
 
     // 手背(掌)——圓角梯形
     ctx.beginPath()
