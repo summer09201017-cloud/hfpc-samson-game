@@ -401,20 +401,39 @@ export class Renderer {
     this._hud(game, t)
   }
 
-  // 無縫復活轉場:黑霧繞著「自外向內收縮的環」聚攏,整體加速變黑,末段全黑(站位在暗處重置)
+  // 無縫復活轉場:黑霧鋪滿全場 + 四邊湧入 + 向心聚攏,整體加速變黑,末段全黑(站位在暗處重置)
   _reviveMist(game) {
     const ctx = this.ctx
-    const p = Math.min(1, game.revive.t / CORRUPTION.reviveDuration) // 0 → 1
-    const ring = (1 - p) * VIEW.W * 0.6 // 環半徑由大收到 0(霧從四周聚向中央)
-    const N = 22
-    for (let i = 0; i < N; i++) {
-      const a = (i / N) * Math.PI * 2 + game.revive.t * 0.8
+    const tt = game.revive.t
+    const p = Math.min(1, tt / CORRUPTION.reviveDuration) // 0 → 1
+    const grow = 0.45 + 0.55 * p // 濃度隨進度上升(一開始就有、越來越濃)
+
+    // 1) 鋪滿整個畫面的飄動煙團(質數步進避免規則排列;四角四邊都覆蓋)
+    for (let i = 0; i < 44; i++) {
+      const bx = ((i * 167 + 30) % VIEW.W) + Math.sin(tt * 0.9 + i) * 28
+      const by = ((i * 109 + 24) % VIEW.H) + Math.cos(tt * 0.8 + i * 1.7) * 24
+      const rad = 90 + 50 * Math.sin(tt * 1.4 + i * 2.1)
+      this._smokePuff(bx, by, rad, 0.42 * grow)
+    }
+    // 2) 四邊向內湧的濃霧帶(上/下/左/右)
+    for (let i = 0; i < 9; i++) {
+      const f = i / 8
+      const d = Math.sin(tt * 0.8 + i) * 22
+      this._smokePuff(VIEW.W * f + d, 4, 120, 0.5 * grow)
+      this._smokePuff(VIEW.W * f - d, VIEW.H - 4, 120, 0.5 * grow)
+      this._smokePuff(4, VIEW.H * f + d, 120, 0.5 * grow)
+      this._smokePuff(VIEW.W - 4, VIEW.H * f - d, 120, 0.5 * grow)
+    }
+    // 3) 繞著「自外向內收縮的環」向中央聚攏
+    const ring = (1 - p) * VIEW.W * 0.6
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2 + tt * 0.8
       const cx = VIEW.W / 2 + Math.cos(a) * ring
       const cy = VIEW.H / 2 + Math.sin(a) * ring * 0.62
-      this._smokePuff(cx, cy, 95 + 35 * Math.sin(i * 2 + game.revive.t * 3), 0.5)
+      this._smokePuff(cx, cy, 100 + 40 * Math.sin(i * 2 + tt * 3), 0.5 * grow)
     }
-    // 整體變黑(加速 p²),末段全黑
-    ctx.fillStyle = `rgba(6,4,12,${Math.min(1, p * p * 1.06)})`
+    // 4) 整體變黑(加速 p²),末段全黑
+    ctx.fillStyle = `rgba(6,4,12,${Math.min(1, p * p * 1.08)})`
     ctx.fillRect(0, 0, VIEW.W, VIEW.H)
   }
 
