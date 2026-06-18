@@ -635,7 +635,7 @@ export class Renderer {
       this._smokePuff(rootX, rootY, 64, 0.85)
       this._smokePuff(rootX + 16, rootY - 12, 46, 0.7)
       this._smokePuff(rootX - 12, rootY + 16, 50, 0.7)
-      this._shadowHand(rootX, rootY, palmX, palmY, grip)
+      this._shadowHand(rootX, rootY, palmX, palmY, grip, t)
 
       // 心臟(被捏住 → 收縮 + 裂痕)
       const beat = 1 - 0.18 * Math.abs(Math.sin(t * 6))
@@ -696,38 +696,52 @@ export class Renderer {
 
   // 漆黑的手(從「固定根部」伸長出去抓心臟):手臂從 (rootX,rootY) 伸到手掌 (px,py)——
   // 根部不動,只有手臂變長、手掌前進(不是整支手平移)。grip 0→1 = 張開→收攏抓握。
-  _shadowHand(rootX, rootY, px, py, grip) {
+  _shadowHand(rootX, rootY, px, py, grip, t = 0) {
     const ctx = this.ctx
-    const DARK = '#04020a'
-    const EDGE = '#171327'
+    const DARK = '#06040e'
+    const EDGE = '#241d3e' // 指節微光(讓人讀得出是手指)
     const ang = Math.atan2(py - rootY, px - rootX)
     const dist = Math.hypot(px - rootX, py - rootY)
+    const open = 1 - grip
 
-    // 前臂:從固定根部「伸長」到手掌(長度 = dist,隨手前進而變長;根部較細、近掌較粗)
+    // ── (a) 霧邊光暈:沿手臂與手掌鋪黑煙,邊緣化成煙霧(畫在實心手之下)──
+    const steps = Math.max(2, Math.round(dist / 22))
+    for (let i = 0; i <= steps; i++) {
+      const f = i / steps
+      const hx = rootX + (px - rootX) * f
+      const hy = rootY + (py - rootY) * f
+      this._smokePuff(hx, hy, 14 + 5 * Math.sin(f * 8 + t * 4), 0.5)
+    }
+    this._smokePuff(px, py, 30, 0.55) // 手掌處濃一點
+    this._smokePuff(px + Math.cos(ang) * 18, py + Math.sin(ang) * 18, 20, 0.4) // 指尖外飄煙
+
+    // ── (b) 實心手:疊在霧上,用陰影模糊讓邊緣「化開」=煙霧感,但形狀仍清楚 ──
+    ctx.save()
+    ctx.shadowColor = 'rgba(8,5,16,0.9)'
+    ctx.shadowBlur = 9
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+
+    // 前臂(root→palm,根部細、近掌粗)
     ctx.save()
     ctx.translate(rootX, rootY)
     ctx.rotate(ang)
-    ctx.lineJoin = 'round'
-    ctx.lineCap = 'round'
     ctx.fillStyle = DARK
     ctx.beginPath()
     ctx.moveTo(0, -4)
-    ctx.quadraticCurveTo(dist * 0.5, -7, dist, -8) // 上緣
+    ctx.quadraticCurveTo(dist * 0.5, -7, dist, -8)
     ctx.lineTo(dist, 8)
-    ctx.quadraticCurveTo(dist * 0.5, 7, 0, 4) // 下緣
+    ctx.quadraticCurveTo(dist * 0.5, 7, 0, 4)
     ctx.closePath()
     ctx.fill()
     ctx.restore()
 
-    // 手掌 + 手指:在手掌位置,本地 +x = 手指朝向(= ang)
+    // 手掌 + 手指(本地 +x = 手指朝向)
     ctx.save()
     ctx.translate(px, py)
     ctx.rotate(ang)
-    ctx.lineJoin = 'round'
-    ctx.lineCap = 'round'
     ctx.fillStyle = DARK
-
-    // 手背(掌)——圓角梯形
+    // 手背(掌)
     ctx.beginPath()
     ctx.moveTo(-8, -9)
     ctx.quadraticCurveTo(11, -10, 12, -7)
@@ -736,46 +750,48 @@ export class Renderer {
     ctx.closePath()
     ctx.fill()
 
-    // 四指:基部在掌前緣(x≈12),往 +x 伸,grip 越大越向內彎曲包住
-    const open = 1 - grip
-    const fingers = [-7, -2.5, 2, 6.5] // 各指的 y 基準
-    const segW = [4.4, 4.8, 4.6, 4.0] // 指粗(中指最粗)
+    // 四指
+    const fingers = [-7, -2.5, 2, 6.5]
+    const segW = [4.4, 4.8, 4.6, 4.0]
+    const fingerPaths = []
     for (let i = 0; i < 4; i++) {
       const yb = fingers[i]
-      const reach = 16 + i * 0 + (i === 1 || i === 2 ? 3 : 0) // 中間兩指略長
-      // 兩段指節:張開時往前直伸,收攏時關節彎曲、指尖朝掌心內收
+      const reach = 16 + (i === 1 || i === 2 ? 3 : 0)
       const midX = 12 + reach * 0.55 * (0.6 + 0.4 * open)
-      const midY = yb + (grip * yb * -0.15)
-      const tipX = 12 + reach * (0.5 + 0.5 * open) // 收攏時縮短
-      const tipY = yb * (0.35 + 0.65 * open) - grip * 5 * Math.sign(yb || 1) * 0 // 指尖向中線收
+      const midY = yb + grip * yb * -0.15
+      const tipX = 12 + reach * (0.5 + 0.5 * open)
+      const tipY = yb * (0.35 + 0.65 * open)
+      fingerPaths.push({ yb, midX, midY, tipX, tipY, w: segW[i] })
       ctx.strokeStyle = DARK
       ctx.lineWidth = segW[i]
       ctx.beginPath()
       ctx.moveTo(12, yb)
       ctx.quadraticCurveTo(midX, midY - 3 * open, tipX, tipY)
       ctx.stroke()
-      // 指節高光
-      ctx.strokeStyle = EDGE
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.moveTo(13, yb - segW[i] * 0.3)
-      ctx.quadraticCurveTo(midX, midY - 3 * open - segW[i] * 0.3, tipX, tipY)
-      ctx.stroke()
     }
+    // 拇指
+    const thBaseX = 2
+    const thBaseY = 10
+    const thTipX = 12 + 9 * open
+    const thTipY = 10 - 12 * grip
+    ctx.strokeStyle = DARK
+    ctx.lineWidth = 5
+    ctx.beginPath()
+    ctx.moveTo(thBaseX, thBaseY)
+    ctx.quadraticCurveTo(thBaseX + 8, thBaseY + 1, thTipX, thTipY)
+    ctx.stroke()
 
-    // 拇指:在掌的下側分出,較短、與四指對握
-    {
-      const baseX = 2
-      const baseY = 10
-      const tipX = 12 + 9 * open
-      const tipY = 10 - 12 * grip // 收攏時往上與四指對握
-      ctx.strokeStyle = DARK
-      ctx.lineWidth = 5
+    // 指節微光(關掉模糊,保持清晰 → 讀得出是手指)
+    ctx.shadowBlur = 0
+    ctx.strokeStyle = EDGE
+    ctx.lineWidth = 1
+    for (const f of fingerPaths) {
       ctx.beginPath()
-      ctx.moveTo(baseX, baseY)
-      ctx.quadraticCurveTo(baseX + 8, baseY + 1, tipX, tipY)
+      ctx.moveTo(13, f.yb - f.w * 0.3)
+      ctx.quadraticCurveTo(f.midX, f.midY - 3 * open - f.w * 0.3, f.tipX, f.tipY)
       ctx.stroke()
     }
+    ctx.restore()
 
     ctx.restore()
   }
