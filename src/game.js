@@ -11,6 +11,7 @@ const STATE = {
   INTRO: 'intro', // 走向葡萄園、獅子吼叫(可跳過)
   FIGHT: 'fight', // 核心:俯視角自由走位 + 近戰
   FINISHER: 'finisher', // 「撕裂」收尾(不可失敗,玩家不操控)
+  REVIVING: 'reviving', // 無縫復活轉場:黑霧聚攏到全黑,全黑底下重置站位,再揭開續戰
   BADENDING: 'badending', // 壞結局演出:黑霧 + 漆黑細手捏心臟(地獄模式中死亡,玩家不操控)
   WIN: 'win',
   LOSE: 'lose',
@@ -44,6 +45,7 @@ export class Game {
     this.intro = { t: 0 }
     this.fin = { t: 0 }
     this.bad = { t: 0 } // 壞結局演出計時
+    this.revive = { t: 0, done: false } // 無縫復活轉場計時(黑霧聚攏 → 全黑底下重置站位)
     this.fx = { hitT: 0, hurtT: 0, healT: 0, healX: 0, healY: 0, boltT: 0, reviveT: 0 } // 打擊/受傷/補血/閃電/復活特效計時(renderer 讀)
     this.honeys = [] // 場上的蜂窩補血道具:{ x, y, t }
     this._honeyTimer = 0
@@ -438,6 +440,22 @@ export class Game {
       this.input.consumeAttack()
       this.input.consumeSkip()
       if (this.fin.t >= FINISHER.duration) this.win()
+    } else if (this.state === STATE.REVIVING) {
+      // 黑霧聚攏到全黑(約 reviveDuration 秒);過半(全黑)時在暗處重置站位,結束揭開續戰
+      this.revive.t += dt
+      this.input.consumeAttack()
+      this.input.consumeSkip()
+      this.input.consumePause()
+      if (!this.revive.done && this.revive.t >= CORRUPTION.reviveDuration * 0.8) {
+        this._revive()
+        this.revive.done = true
+      }
+      if (this.revive.t >= CORRUPTION.reviveDuration) {
+        this.state = STATE.FIGHT
+        this.acc = 0
+        this.fx.reviveT = 0.5 // 由全黑快速淡入揭開場景
+        this.ui.showPauseButton()
+      }
     } else if (this.state === STATE.BADENDING) {
       const prev = this.bad.t
       this.bad.t += dt
@@ -510,20 +528,24 @@ export class Game {
       return this._finish(false)
     }
 
-    // 前 deathModeAt 次死亡:當場「無縫復活」——不跳失敗畫面、戰鬥不中斷、獅子血量保留。
+    // 前 deathModeAt 次死亡:進入「無縫復活轉場」——不跳失敗畫面,黑霧自四周聚攏到全黑,
+    // 全黑底下重置站位(由 loop 在轉場過半時呼叫 _revive),再揭開續戰。獅子血量保留。
     // 第 deathModeAt 次(預設第 3 次)復活時,無縫轉入地獄(死神)模式。
     Audio.sfx('hit') // 倒下的悶擊(不停音樂)
     if (this.deaths >= CORRUPTION.deathModeAt) {
       this.deathMode = true
-      this.lion.deathMode = true // 獅子當場化為死神(全面強化,見 lion.cfg / renderer)
+      this.lion.deathMode = true // 獅子化為死神(全面強化,見 lion.cfg / renderer)
       this.hudLabels = this._hudOverride || { ...LEVEL1.hud, ...(LEVEL1.deathHud || {}) }
       Audio.sfx('roar', { big: true })
     }
-    this._revive()
+    this.ui.hidePauseButton()
+    this.revive = { t: 0, done: false }
+    this.state = STATE.REVIVING
   }
 
-  // 無縫復活:維持 FIGHT、不顯示 UI。參孫與獅子「重置回原本站位」、獅子動畫重新登場
-  // (清掉進行中的衝刺/捕獸夾/爪擊,公平),但**保留獅子血量與死神模式、保留累積的黑暗**。
+  // 無縫復活的「重置」:在黑霧全黑底下執行,所以站位瞬移不會被看到。
+  // 參孫與獅子回原本站位、獅子動畫重新登場(清掉進行中的衝刺/捕獸夾/爪擊),
+  // 但**保留獅子血量與死神模式、保留累積的黑暗**。
   _revive() {
     const s = this.samson
     const l = this.lion
@@ -535,7 +557,6 @@ export class Game {
     l.deathMode = keepDeath // 死神模式維持
     s.invuln = SAMSON.reviveInvuln // 復活後一段無敵
     this.combo = 0
-    this.fx.reviveT = 0.7 // 復活金光(renderer 讀)
   }
 
   // 壞結局:黑霧 + 漆黑細手捏住心臟,演完進入壞結局畫面。演完後墮落清零(下一輪重新開始)。

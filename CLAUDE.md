@@ -32,7 +32,7 @@
 - **第二階段(血量 < `LION.fangHpThreshold`,預設 10)**:獅子每 `fangInterval`(2 秒)在場上放一個**捕獸夾**。每個生命週期:先在地上顯示 `fangWarn`(0.8 秒)**警示提示**(收緊的紅色目標圈+十字,無傷)→ 捕獸夾**彈出**並傷人 `fangLife`(5 秒)→ 消失。彈出後踩到扣 1 心(吃受擊無敵)。由 `lion.fangs[]`(每個 `{x,y,t}`,`t`=已存在秒數)自持:spawn/老化/cull 在 `lion._updateFangs`(總壽命 = `fangWarn+fangLife`),碰撞判定在 `game.js`(`f.t >= fangWarn` 才傷人),捕獸夾向量繪製在 `renderer.js`。不會生在玩家腳下(`fangSafeR`)。
 - **最後狂暴(血量 ≤ `LION.enrageHpThreshold`,預設 3)**:`lion.enraged()` 為真時,`cfg()` 把衝刺循環的時長 ÷`enrageSpeedup`(1.3)、移動速度 ×`enrageSpeedup`,捕獸夾 `fangInterval` 與爪擊 `clawGap` 也同步縮短 → 所有攻擊加快。只加快節奏/移動,大招預警窗保留。renderer 在獅子腳下畫脈動紅光暈。
 - **神蹟降臨(`MIRACLE`)**:每隔 `interval`(30 秒;死神/地獄模式縮短為 `deathInterval`=20 秒)天降閃電打在獅子身上,扣 `damage`(3)血——把「耶和華的靈大大感動參孫」直接演出來(得勝出於神、非人的本事)。計時在 `game.step`(`_miracleTimer`),傷害走共用 `_damageLion`(可直接觸發收尾),全場白光+鋸齒閃電+經文(`scripture.js` 的 `LEVEL1.miracle`,經 `game.miracleText` 餵給 renderer,不寫死)繪製在 `renderer._lightning`。
-- **墮落系統(`CORRUPTION`)+ 無縫復活**:玩家死亡(心歸零)時 `gameOver()` **不跳失敗畫面**,而是當場 `_revive()`——**參孫與獅子重置回原本起始站位、獅子動畫重新登場(`enter`)、清掉進行中的衝刺/捕獸夾/爪擊**,滿血 + `SAMSON.reviveInvuln`(2.2s)無敵,但**保留獅子血量與死神模式**(無縫=同一場戰鬥繼續);每死一次 `game.deaths` 累積、畫面疊加 `darkenPerDeath` 黑暗。死滿 `deathModeAt`(3)次那一刻 → `game.deathMode=true`,**無縫**轉入地獄模式:獅子當場化為**死神**(`lion.deathMode` → 暗黑配色+發光紅眼+💀+暗紫暈影,HUD 名稱換 `LEVEL1.deathHud`),難度大增(`cfg()` 再乘 `speedup` 1.5、捕獸夾與爪擊滿血就啟用)。**地獄模式中再死一次**才走壞結局(見下)。`deaths/deathMode` 在 `win()` 不清零(整輪累積)、`toTitle()` 與壞結局收尾才清零。士師記的影子(士 16:一再失敗、心被蒙蔽)。(嵌入模式無此演出,死亡仍直接 `onComplete`。)
+- **墮落系統(`CORRUPTION`)+ 黑霧復活轉場**:玩家死亡(心歸零)時 `gameOver()` **不跳失敗畫面**,改進入新狀態 `STATE.REVIVING`——**黑霧自四周往中間聚攏直到全黑**(`reviveDuration` 約 3 秒,`renderer._reviveMist`);轉場過半(全黑)時在暗處呼叫 `_revive()`:**參孫與獅子重置回原本起始站位、獅子動畫重新登場(`enter`)、清掉進行中的衝刺/捕獸夾/爪擊**,滿血 + `SAMSON.reviveInvuln`(2.2s)無敵,但**保留獅子血量與死神模式**(無縫=同一場戰鬥繼續、瞬移在全黑底下看不到);轉場結束由全黑快速淡入(`fx.reviveT`)揭開續戰。每死一次 `game.deaths` 累積、戰鬥畫面疊加 `darkenPerDeath` 黑暗。死滿 `deathModeAt`(3)次那一刻 → `game.deathMode=true`,**無縫**轉入地獄模式:獅子當場化為**死神**(`lion.deathMode` → 暗黑配色+發光紅眼+💀+暗紫暈影,HUD 名稱換 `LEVEL1.deathHud`),難度大增(`cfg()` 再乘 `speedup` 1.5、捕獸夾與爪擊滿血就啟用)。**地獄模式中再死一次**才走壞結局(見下)。`deaths/deathMode` 在 `win()` 不清零(整輪累積)、`toTitle()` 與壞結局收尾才清零。士師記的影子(士 16:一再失敗、心被蒙蔽)。(嵌入模式無此演出,死亡仍直接 `onComplete`。)
 - **壞結局(地獄模式中再死一次)**:已在 `deathMode` 時 `gameOver()` 改走 `enterBadEnding()` → 新狀態 `STATE.BADENDING` 演出(`renderer._drawBadEnding`:黑霧聚攏 → 漆黑細手伸入捏住心臟[`_heart`]→ 全黑字幕,長度 `BADEND.duration`),演完顯示壞結局畫面(`ui.showBadEnding` + `scripture.js` 的 `LEVEL1.badEnd`,羅 6:23 指向基督的盼望),並把 `deaths/deathMode` 清零讓下一輪重新開始。象徵性、不血腥。
 - 反擊 `LION.maxHp`(目前 30)下 → 觸發「撕裂」收尾(`enterFinisher`),神的靈光暈 + 經文淡入 → 過關。
 - **蜂窩補血(`HONEY`)**:場上每隔 `spawnMin~spawnMax`(6~11s 隨機=不定時)出現一個 🍯 蜂窩(場上最多 `maxOnField`,`life` 秒沒吃會閃爍後消失,不生在玩家腳下 `safeR`)。走過去(`HONEY.r`)補 `heal`(1)滴血,**滿血則不吃、留在場上**。由 `game.honeys[]` 自管(`_stepHoney`/`_spawnHoney`),呼應士 14:8-9「從死獅之內取蜜」。
@@ -44,7 +44,7 @@
 
 ```
 src/
-  game.js      主迴圈 + 狀態機(title/intro/fight/finisher/win/lose/paused)+ 戰鬥裁判 + 嵌入契約
+  game.js      主迴圈 + 狀態機(title/intro/fight/reviving/finisher/badending/win/lose/paused)+ 戰鬥裁判 + 嵌入契約
   config.js    ★ 所有可調數值(SAMSON / LION / PHASES / 判定窗 / INTRO / FINISHER)——調手感只動這裡
   scripture.js ★ 經文與文案(LEVEL1:title/verse/win/lose/hud/honey,和合本)——改文案只動這裡
   samson.js    參孫:俯視角走位(idle/move)+ attack(反擊,有效判定窗)、hearts、受擊無敵

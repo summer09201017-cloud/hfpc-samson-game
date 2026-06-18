@@ -390,25 +390,32 @@ export class Renderer {
     // 神蹟降臨:天降閃電打在獅子身上 + 全場神聖白光 + 經文(得勝出於神的靈)
     if (game.fx.boltT > 0) this._lightning(game, l)
 
-    // 無縫復活:參孫腳下一圈金光擴散(短暫,告訴玩家「站起來了」)
+    // 無縫復活轉場:黑霧自四周往中間聚攏直到全黑(約 3 秒)
+    if (game.state === 'reviving') this._reviveMist(game)
+    // 復活完成後:由全黑快速淡入,揭開重置好的場景
     if (game.fx.reviveT > 0) {
-      const k = game.fx.reviveT / 0.7 // 1 → 0
-      const rad = 30 + (1 - k) * 80
-      const g = ctx.createRadialGradient(s.x, s.y, 4, s.x, s.y, rad)
-      g.addColorStop(0, `rgba(255,240,180,${0.55 * k})`)
-      g.addColorStop(1, 'rgba(255,240,180,0)')
-      ctx.fillStyle = g
-      ctx.beginPath()
-      ctx.arc(s.x, s.y, rad, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.strokeStyle = `rgba(255,236,172,${0.7 * k})`
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      ctx.arc(s.x, s.y, rad, 0, Math.PI * 2)
-      ctx.stroke()
+      ctx.fillStyle = `rgba(4,2,10,${Math.min(1, game.fx.reviveT / 0.5)})`
+      ctx.fillRect(0, 0, VIEW.W, VIEW.H)
     }
 
     this._hud(game, t)
+  }
+
+  // 無縫復活轉場:黑霧繞著「自外向內收縮的環」聚攏,整體加速變黑,末段全黑(站位在暗處重置)
+  _reviveMist(game) {
+    const ctx = this.ctx
+    const p = Math.min(1, game.revive.t / CORRUPTION.reviveDuration) // 0 → 1
+    const ring = (1 - p) * VIEW.W * 0.6 // 環半徑由大收到 0(霧從四周聚向中央)
+    const N = 22
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2 + game.revive.t * 0.8
+      const cx = VIEW.W / 2 + Math.cos(a) * ring
+      const cy = VIEW.H / 2 + Math.sin(a) * ring * 0.62
+      this._smokePuff(cx, cy, 95 + 35 * Math.sin(i * 2 + game.revive.t * 3), 0.5)
+    }
+    // 整體變黑(加速 p²),末段全黑
+    ctx.fillStyle = `rgba(6,4,12,${Math.min(1, p * p * 1.06)})`
+    ctx.fillRect(0, 0, VIEW.W, VIEW.H)
   }
 
   // 天降閃電(神蹟):鋸齒狀亮白閃電從天打到獅子,伴隨全場白光與經文淡出

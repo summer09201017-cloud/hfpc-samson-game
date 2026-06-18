@@ -106,6 +106,7 @@ export const CORRUPTION = {
   deathModeAt: 3, // 第幾次死亡進入「死神」模式
   darkenPerDeath: 0.16, // 每死一次,戰鬥畫面疊加的黑暗 alpha(死神模式再額外加深)
   speedup: 1.5, // 死神模式:衝刺循環時長 ÷ 此值、移動與出招頻率 × 此值(比狂暴更兇)
+  reviveDuration: 3.0, // 無縫復活轉場:黑霧自四周聚攏到全黑的秒數(全黑底下重置站位)
 }
 
 // 開場短演出 / 撕裂收尾的長度(秒)
