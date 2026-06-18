@@ -1407,8 +1407,8 @@ export class Renderer {
     const l = game.lion
     if (game.state !== 'fight' && game.state !== 'paused') return
 
-    // 心:滿格 ❤️、已失去的格用暗心墊底(看得出 目前/上限)
-    for (let i = 0; i < s.maxHearts; i++) {
+    // 心:滿格 ❤️、已失去的格用暗心墊底(看得出 目前/上限)。上限讀 SAMSON.maxHearts(唯一真相)
+    for (let i = 0; i < SAMSON.maxHearts; i++) {
       const hx = 34 + i * 36
       if (i >= s.hearts) {
         ctx.globalAlpha = 0.32
