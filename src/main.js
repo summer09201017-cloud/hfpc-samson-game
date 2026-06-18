@@ -7,6 +7,9 @@ const canvas = document.getElementById('game')
 const game = new Game(canvas, { ui: new UI() })
 game.boot()
 
+// 偵錯掛點:只在 localhost 暴露 game,方便瀏覽器主控台 / Playwright 驗收(正式站不暴露)
+if (['localhost', '127.0.0.1', '::1'].includes(location.hostname)) window.__game = game
+
 // Service Worker 策略:
 //   - 開發環境(localhost):移除任何已註冊的 SW 並清掉快取,確保永遠載入最新程式
 //     (否則「快取優先」的 SW 會一直餵舊檔,改了沒反應)。

@@ -5,3 +5,7 @@ site/
 
 # Local Netlify folder
 .netlify
+
+# Playwright 驗收產物(不入庫;只忽略 repo 根目錄的截圖,不碰 public/icons)
+.playwright-mcp/
+/*.png

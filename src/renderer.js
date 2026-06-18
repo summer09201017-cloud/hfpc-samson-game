@@ -712,13 +712,13 @@ export class Renderer {
       const hy = rootY + (py - rootY) * f
       this._smokePuff(hx, hy, 14 + 5 * Math.sin(f * 8 + t * 4), 0.5)
     }
-    this._smokePuff(px, py, 30, 0.55) // 手掌處濃一點
-    this._smokePuff(px + Math.cos(ang) * 18, py + Math.sin(ang) * 18, 20, 0.4) // 指尖外飄煙
+    this._smokePuff(px, py, 22, 0.5) // 手掌處濃一點(縮小,避免糊成圓團)
+    this._smokePuff(px + Math.cos(ang) * 20, py + Math.sin(ang) * 20, 13, 0.38) // 指尖外飄煙
 
     // ── (b) 實心手:疊在霧上,用陰影模糊讓邊緣「化開」=煙霧感,但形狀仍清楚 ──
     ctx.save()
     ctx.shadowColor = 'rgba(8,5,16,0.9)'
-    ctx.shadowBlur = 9
+    ctx.shadowBlur = 5
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
 
@@ -1453,6 +1453,11 @@ export class Renderer {
     if (game.state !== 'fight' && game.state !== 'paused') return
 
     // 心:滿格 ❤️、已失去的格用暗心墊底(看得出 目前/上限)。上限讀 SAMSON.maxHearts(唯一真相)
+    // 先墊一塊半透明深色圓底板,讓心在深色葡萄園背景上也醒目(與血條底板一致)
+    const plateW = (SAMSON.maxHearts - 1) * 36 + 42
+    ctx.fillStyle = 'rgba(20,12,4,0.5)'
+    roundRect(ctx, 13, 21, plateW, 34, 11)
+    ctx.fill()
     for (let i = 0; i < SAMSON.maxHearts; i++) {
       const hx = 34 + i * 36
       if (i >= s.hearts) {
