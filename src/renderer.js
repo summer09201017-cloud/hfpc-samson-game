@@ -390,6 +390,24 @@ export class Renderer {
     // 神蹟降臨:天降閃電打在獅子身上 + 全場神聖白光 + 經文(得勝出於神的靈)
     if (game.fx.boltT > 0) this._lightning(game, l)
 
+    // 無縫復活:參孫腳下一圈金光擴散(短暫,告訴玩家「站起來了」)
+    if (game.fx.reviveT > 0) {
+      const k = game.fx.reviveT / 0.7 // 1 → 0
+      const rad = 30 + (1 - k) * 80
+      const g = ctx.createRadialGradient(s.x, s.y, 4, s.x, s.y, rad)
+      g.addColorStop(0, `rgba(255,240,180,${0.55 * k})`)
+      g.addColorStop(1, 'rgba(255,240,180,0)')
+      ctx.fillStyle = g
+      ctx.beginPath()
+      ctx.arc(s.x, s.y, rad, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = `rgba(255,236,172,${0.7 * k})`
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.arc(s.x, s.y, rad, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+
     this._hud(game, t)
   }
 
@@ -1446,6 +1464,16 @@ export class Renderer {
       ctx.lineTo(xx, by + barH - 2)
       ctx.stroke()
     }
+    // 血量百分比(疊在血條中央,描邊讓深淺底都讀得清楚)
+    const pct = Math.ceil(hpFrac * 100)
+    ctx.font = `800 13px ${FONT}`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.lineWidth = 3
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)'
+    ctx.strokeText(`${pct}%`, VIEW.W / 2, by + barH / 2 + 1)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(`${pct}%`, VIEW.W / 2, by + barH / 2 + 1)
     const goal = (game.hudLabels && game.hudLabels.goal) || '少壯獅子'
     ctx.fillStyle = l.deathMode ? '#e3b6ff' : '#f3ead0'
     ctx.font = `700 15px ${FONT}`

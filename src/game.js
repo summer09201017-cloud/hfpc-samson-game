@@ -44,7 +44,7 @@ export class Game {
     this.intro = { t: 0 }
     this.fin = { t: 0 }
     this.bad = { t: 0 } // 壞結局演出計時
-    this.fx = { hitT: 0, hurtT: 0, healT: 0, healX: 0, healY: 0, boltT: 0 } // 打擊/受傷/補血/閃電特效計時(renderer 讀)
+    this.fx = { hitT: 0, hurtT: 0, healT: 0, healX: 0, healY: 0, boltT: 0, reviveT: 0 } // 打擊/受傷/補血/閃電/復活特效計時(renderer 讀)
     this.honeys = [] // 場上的蜂窩補血道具:{ x, y, t }
     this._honeyTimer = 0
     this._honeyNext = HONEY.spawnMax
@@ -131,7 +131,7 @@ export class Game {
     this.samson.reset()
     this.lion.reset()
     this.combo = 0
-    this.fx = { hitT: 0, hurtT: 0, healT: 0, healX: 0, healY: 0, boltT: 0 }
+    this.fx = { hitT: 0, hurtT: 0, healT: 0, healX: 0, healY: 0, boltT: 0, reviveT: 0 }
     this.honeys = []
     this._honeyTimer = 0
     this._honeyNext = this._rollHoneyDelay()
@@ -419,6 +419,7 @@ export class Game {
     if (this.fx.hurtT > 0) this.fx.hurtT = Math.max(0, this.fx.hurtT - dt)
     if (this.fx.healT > 0) this.fx.healT = Math.max(0, this.fx.healT - dt)
     if (this.fx.boltT > 0) this.fx.boltT = Math.max(0, this.fx.boltT - dt)
+    if (this.fx.reviveT > 0) this.fx.reviveT = Math.max(0, this.fx.reviveT - dt)
 
     if (this.state === STATE.FIGHT) {
       this.acc += dt
@@ -501,16 +502,32 @@ export class Game {
     // 已在地獄(死神)模式中又死一次 → 黑暗奪心的壞結局演出
     if (this.deathMode) return this.enterBadEnding()
 
-    this.state = STATE.LOSE
-    this.ui.hidePauseButton()
-    Audio.stopMusic()
-    Audio.sfx('lose')
-    this.deaths += 1 // 累積死亡 → 畫面漸暗;滿門檻進入死神模式
-    const justCorrupted = this.deaths >= CORRUPTION.deathModeAt
-    if (this.deaths >= CORRUPTION.deathModeAt) this.deathMode = true
-    if (this.embed) return this._finish(false)
-    // 剛跨入死神模式 → 顯示「心智被侵蝕」劇情文案
-    this.ui.showLose(LEVEL1, { corrupt: justCorrupted })
+    this.deaths += 1 // 累積死亡 → 畫面漸暗
+
+    // 嵌入模式:沒有「無縫復活/劇情」的空間,維持原本回呼
+    if (this.embed) {
+      if (this.deaths >= CORRUPTION.deathModeAt) this.deathMode = true
+      return this._finish(false)
+    }
+
+    // 前 deathModeAt 次死亡:當場「無縫復活」——不跳失敗畫面、戰鬥不中斷、獅子血量保留。
+    // 第 deathModeAt 次(預設第 3 次)復活時,無縫轉入地獄(死神)模式。
+    Audio.sfx('hit') // 倒下的悶擊(不停音樂)
+    if (this.deaths >= CORRUPTION.deathModeAt) {
+      this.deathMode = true
+      this.lion.deathMode = true // 獅子當場化為死神(全面強化,見 lion.cfg / renderer)
+      this.hudLabels = this._hudOverride || { ...LEVEL1.hud, ...(LEVEL1.deathHud || {}) }
+      Audio.sfx('roar', { big: true })
+    }
+    this._revive()
+  }
+
+  // 無縫復活:滿血 + 一段較長無敵(避免被進行中的攻擊連殺),維持 FIGHT、不動獅子血、不顯示 UI。
+  _revive() {
+    const s = this.samson
+    s.hearts = SAMSON.maxHearts
+    s.invuln = Math.max(s.invuln, SAMSON.reviveInvuln)
+    this.fx.reviveT = 0.7 // 復活閃光(renderer 讀)
   }
 
   // 壞結局:黑霧 + 漆黑細手捏住心臟,演完進入壞結局畫面。演完後墮落清零(下一輪重新開始)。

@@ -12,8 +12,9 @@ export const SAMSON = {
   speed: 236, // 走位速度 (px/s)
   runMultiplier: 1.6, // 按住 Shift 奔跑時的速度倍率(1 = 不奔跑)
   r: 17, // 身體半徑(夾在場內 / 碰撞用)
-  maxHearts: 3, // 玩家血量(心數)
+  maxHearts: 5, // 玩家血量(心數)
   invulnTime: 1.1, // 受擊後無敵秒數(閃爍)
+  reviveInvuln: 2.2, // 無縫復活後的無敵秒數(較長,避免被進行中的攻擊連續秒殺)
   attackTime: 0.36, // 出手(揮擊)動作總時長
   attackActive: [0.08, 0.24], // 出手的「有效判定」時間窗(秒)
   attackReach: 96, // 近戰命中距離(與獅子中心的距離)
