@@ -522,12 +522,20 @@ export class Game {
     this._revive()
   }
 
-  // 無縫復活:滿血 + 一段較長無敵(避免被進行中的攻擊連殺),維持 FIGHT、不動獅子血、不顯示 UI。
+  // 無縫復活:維持 FIGHT、不顯示 UI。參孫與獅子「重置回原本站位」、獅子動畫重新登場
+  // (清掉進行中的衝刺/捕獸夾/爪擊,公平),但**保留獅子血量與死神模式、保留累積的黑暗**。
   _revive() {
     const s = this.samson
-    s.hearts = SAMSON.maxHearts
-    s.invuln = Math.max(s.invuln, SAMSON.reviveInvuln)
-    this.fx.reviveT = 0.7 // 復活閃光(renderer 讀)
+    const l = this.lion
+    const keepHp = l.hp
+    const keepDeath = l.deathMode
+    s.reset() // 參孫回起始站位、滿血、idle
+    l.reset() // 獅子回起始站位、enter 登場動畫、清掉捕獸夾/爪擊
+    l.hp = keepHp // 但血量不回補(無縫=同一場戰鬥繼續)
+    l.deathMode = keepDeath // 死神模式維持
+    s.invuln = SAMSON.reviveInvuln // 復活後一段無敵
+    this.combo = 0
+    this.fx.reviveT = 0.7 // 復活金光(renderer 讀)
   }
 
   // 壞結局:黑霧 + 漆黑細手捏住心臟,演完進入壞結局畫面。演完後墮落清零(下一輪重新開始)。
