@@ -46,7 +46,8 @@ export class Game {
     this.fin = { t: 0 }
     this.bad = { t: 0 } // 壞結局演出計時
     this.revive = { t: 0, done: false } // 無縫復活轉場計時(黑霧聚攏 → 全黑底下重置站位)
-    this.fx = { hitT: 0, hurtT: 0, healT: 0, healX: 0, healY: 0, boltT: 0, reviveT: 0 } // 打擊/受傷/補血/閃電/復活特效計時(renderer 讀)
+    this.fx = { hitT: 0, hurtT: 0, healT: 0, healX: 0, healY: 0, boltT: 0, reviveT: 0, shakeT: 0, shakeMag: 0 } // 特效計時(renderer 讀);shake = 命中震動
+    this._hitStop = 0 // 命中頓幀:>0 時暫停戰鬥模擬數十毫秒,增強打擊感
     this.honeys = [] // 場上的蜂窩補血道具:{ x, y, t }
     this._honeyTimer = 0
     this._honeyNext = HONEY.spawnMax
@@ -133,7 +134,8 @@ export class Game {
     this.samson.reset()
     this.lion.reset()
     this.combo = 0
-    this.fx = { hitT: 0, hurtT: 0, healT: 0, healX: 0, healY: 0, boltT: 0, reviveT: 0 }
+    this.fx = { hitT: 0, hurtT: 0, healT: 0, healX: 0, healY: 0, boltT: 0, reviveT: 0, shakeT: 0, shakeMag: 0 }
+    this._hitStop = 0
     this.honeys = []
     this._honeyTimer = 0
     this._honeyNext = this._rollHoneyDelay()
@@ -245,7 +247,17 @@ export class Game {
       s.attackedThisSwing = true
       if (l.open) {
         this.combo += 1
-        this.fx.hitT = 0.35
+        // ── 打擊感:爆擊特效 + 頓幀 + 畫面震動 + 獅子被打退/閃白 + 手機震動 ──
+        this.fx.hitT = 0.5
+        this.fx.shakeT = 0.2
+        this.fx.shakeMag = 5 + Math.min(this.combo, 6) * 0.8 // 連擊越高震越有勁
+        this._hitStop = 0.07 // 命中瞬間頓一下(增強重量感)
+        const a = Math.atan2(l.y - s.y, l.x - s.x) // 把獅子往遠離參孫方向打退
+        l.x += Math.cos(a) * 16
+        l.y += Math.sin(a) * 16
+        l.flash = Math.max(l.flash, 0.32) // 獅子受擊閃白(flinch)
+        s.face = l.x < s.x ? -1 : 1
+        try { if (navigator.vibrate) navigator.vibrate(18) } catch {}
         Audio.sfx('clash')
         if (this._damageLion(1)) return // 血歸零 → 撕裂收尾
       } else {
@@ -422,13 +434,21 @@ export class Game {
     if (this.fx.healT > 0) this.fx.healT = Math.max(0, this.fx.healT - dt)
     if (this.fx.boltT > 0) this.fx.boltT = Math.max(0, this.fx.boltT - dt)
     if (this.fx.reviveT > 0) this.fx.reviveT = Math.max(0, this.fx.reviveT - dt)
+    if (this.fx.shakeT > 0) this.fx.shakeT = Math.max(0, this.fx.shakeT - dt)
 
     if (this.state === STATE.FIGHT) {
-      this.acc += dt
-      while (this.acc >= STEP) {
-        this.step(STEP)
-        if (this.state !== STATE.FIGHT) break
-        this.acc -= STEP
+      if (this._hitStop > 0) {
+        // 命中頓幀:暫停戰鬥模擬(但畫面照常重繪、特效照跑)
+        this._hitStop = Math.max(0, this._hitStop - dt)
+        this.acc = 0
+      } else {
+        this.acc += dt
+        while (this.acc >= STEP) {
+          this.step(STEP)
+          if (this.state !== STATE.FIGHT) break
+          if (this._hitStop > 0) { this.acc = 0; break } // 這一步觸發頓幀 → 立刻停
+          this.acc -= STEP
+        }
       }
     } else if (this.state === STATE.INTRO) {
       this.intro.t += dt

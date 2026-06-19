@@ -74,6 +74,14 @@ export class Renderer {
     const l = game.lion
     this._bgArena(t)
 
+    // 命中震動:只搖「世界層」(地面紋已畫,搖角色/特效;HUD 與全螢幕覆蓋層不搖)
+    const sk = game.fx.shakeT > 0 ? (game.fx.shakeMag || 4) * (game.fx.shakeT / 0.2) : 0
+    const shakeOn = sk > 0.2
+    if (shakeOn) {
+      ctx.save()
+      ctx.translate(Math.sin(t * 90) * sk, Math.cos(t * 113) * sk)
+    }
+
     // 獅子蓄力:畫出「衝刺預示線」(紅色),讓玩家看清楚要往哪邊閃。
     // 追蹤中=半透明虛線(會跟著你轉);定住後(aimLocked)=更亮的實線(代表方向已鎖,要撲了)。
     if (l.state === 'telegraph') {
@@ -354,18 +362,48 @@ export class Renderer {
       ctx.globalAlpha = 1
     }
 
-    // 反擊命中爆擊
+    // 反擊命中爆擊(加大:雙重衝擊環 + 放射星芒 + 白閃 + 大 💥,連擊越高越誇張)
     if (game.fx.hitT > 0) {
-      const k = game.fx.hitT / 0.35
+      const k = game.fx.hitT / 0.5 // 1 → 0
+      const e = 1 - k // 0 → 1(擴散進度)
       const cx = (s.x + l.x) / 2
-      const cy = (s.y + l.y) / 2 - 30
+      const cy = (s.y + l.y) / 2 - 26
+      const combo = Math.min(game.combo || 1, 8)
+      const boost = 1 + combo * 0.08
+      // 命中瞬間白閃(很短)
+      if (k > 0.72) {
+        ctx.fillStyle = `rgba(255,250,235,${(k - 0.72) / 0.28 * 0.5})`
+        ctx.fillRect(0, 0, VIEW.W, VIEW.H)
+      }
+      // 放射星芒
+      ctx.strokeStyle = `rgba(255,238,150,${k})`
+      ctx.lineWidth = 3
+      ctx.lineCap = 'round'
+      const spokes = 8
+      for (let i = 0; i < spokes; i++) {
+        const a = (i / spokes) * Math.PI * 2 + 0.2
+        const r1 = 14 + e * 26
+        const r2 = r1 + (22 + e * 40) * boost
+        ctx.beginPath()
+        ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1)
+        ctx.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2)
+        ctx.stroke()
+      }
+      // 雙重衝擊環
       ctx.strokeStyle = `rgba(255,240,180,${k})`
-      ctx.lineWidth = 5
+      ctx.lineWidth = 6
       ctx.beginPath()
-      ctx.arc(cx, cy, 18 + (1 - k) * 44, 0, Math.PI * 2)
+      ctx.arc(cx, cy, (16 + e * 50) * boost, 0, Math.PI * 2)
       ctx.stroke()
-      this._emoji('💥', cx, cy, 30 + (1 - k) * 16, 'middle')
+      ctx.strokeStyle = `rgba(255,255,255,${k * 0.8})`
+      ctx.lineWidth = 2.5
+      ctx.beginPath()
+      ctx.arc(cx, cy, (8 + e * 30) * boost, 0, Math.PI * 2)
+      ctx.stroke()
+      this._emoji('💥', cx, cy, (34 + e * 22) * boost, 'middle')
     }
+
+    if (shakeOn) ctx.restore() // 結束「世界層」震動(以下覆蓋層/HUD 不震)
 
     // 墮落漸暗:每死一次畫面更黑一點;死神模式再加深 + 暗紫邊角暈影
     if (game.deaths > 0) {

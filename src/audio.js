@@ -209,8 +209,11 @@ export const Audio = {
         if (opt.weak) {
           blip(150, 0.12, 'square', 0.32, 90)
         } else {
-          blip(300, 0.09, 'square', 0.5, 160)
-          blip(620, 0.12, 'square', 0.4)
+          // 三層疊出扎實打擊:低頻重擊(body)+ 中頻爆裂(crack)+ 高頻脆響(snap)
+          blip(110, 0.18, 'sine', 0.7, 42) // 低頻往下沉 → 重量
+          blip(300, 0.1, 'square', 0.55, 150) // 中頻爆裂
+          blip(680, 0.07, 'square', 0.4, 420) // 高頻脆響
+          blip(900, 0.05, 'triangle', 0.3) // 一點亮邊
         }
         break
       case 'roar': // 獅吼(telegraph / 進入新 phase)
