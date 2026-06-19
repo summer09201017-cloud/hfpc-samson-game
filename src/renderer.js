@@ -663,11 +663,6 @@ export class Renderer {
       ctx.fillStyle = `rgba(0,0,0,${k})`
       ctx.fillRect(0, 0, VIEW.W, VIEW.H)
     }
-    ctx.fillStyle = `rgba(180,40,40,${Math.min(1, p * 1.3)})`
-    ctx.font = `800 30px ${FONT}`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('黑暗奪去了參孫的心……', VIEW.W / 2, VIEW.H - 54)
   }
 
   // 小愛心(以 (x,y) 為中心,r 為大致半徑)
