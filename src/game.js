@@ -48,6 +48,9 @@ export class Game {
     this.revive = { t: 0, done: false } // 無縫復活轉場計時(黑霧聚攏 → 全黑底下重置站位)
     this.fx = { hitT: 0, hurtT: 0, healT: 0, healX: 0, healY: 0, boltT: 0, reviveT: 0, shakeT: 0, shakeMag: 0 } // 特效計時(renderer 讀);shake = 命中震動
     this._hitStop = 0 // 命中頓幀:>0 時暫停戰鬥模擬數十毫秒,增強打擊感
+    this._clock = 0 // 戰鬥時鐘(僅 FIGHT 累加;死亡回歸用來找「30 秒前」)
+    this._hpLog = [] // 獅子血量歷史 [{t,hp}](死亡回歸倒退用)
+    this._hpLogTimer = 0
     this.honeys = [] // 場上的蜂窩補血道具:{ x, y, t }
     this._honeyTimer = 0
     this._honeyNext = HONEY.spawnMax
@@ -143,6 +146,9 @@ export class Game {
     this._rockTimer = 0
     this._rockNext = this._rollRockDelay()
     this._miracleTimer = 0
+    this._clock = 0
+    this._hpLog = [{ t: 0, hp: this.lion.hp }]
+    this._hpLogTimer = 0
     this.acc = 0
     this.lion.deathMode = this.deathMode // 死神模式:獅子全面強化(見 lion.cfg / renderer)
     this.state = STATE.FIGHT
@@ -160,6 +166,16 @@ export class Game {
   step(dt) {
     const s = this.samson
     const l = this.lion
+
+    // 戰鬥時鐘 + 每 0.5s 記一次獅子血量(死亡回歸倒退用);只留約 rewindSeconds+2 秒的歷史
+    this._clock += dt
+    this._hpLogTimer += dt
+    if (this._hpLogTimer >= 0.5) {
+      this._hpLogTimer = 0
+      this._hpLog.push({ t: this._clock, hp: l.hp })
+      const cutoff = this._clock - CORRUPTION.rewindSeconds - 2
+      while (this._hpLog.length > 1 && this._hpLog[0].t < cutoff) this._hpLog.shift()
+    }
 
     // 輸入 → 意圖
     if (this.input.consumeAttack()) {
@@ -563,20 +579,36 @@ export class Game {
     this.state = STATE.REVIVING
   }
 
-  // 無縫復活的「重置」:在黑霧全黑底下執行,所以站位瞬移不會被看到。
-  // 參孫與獅子回原本站位、獅子動畫重新登場(清掉進行中的衝刺/捕獸夾/爪擊),
-  // 但**保留獅子血量與死神模式、保留累積的黑暗**。
+  // 死亡回歸的「重置」:在黑霧全黑底下執行,站位瞬移不會被看到。
+  // 參孫與獅子回原本站位、獅子動畫重新登場(清掉進行中的衝刺/捕獸夾/爪擊);
+  // ★ 獅子血量「倒退回 rewindSeconds 秒前」的值(Re:Zero 死亡回歸,損失這段進度),
+  //   但**保留死神模式與累積的黑暗**(時間倒退、墮落不倒退)。
   _revive() {
     const s = this.samson
     const l = this.lion
-    const keepHp = l.hp
+    const rewindHp = this._hpAtRewind()
     const keepDeath = l.deathMode
     s.reset() // 參孫回起始站位、滿血、idle
     l.reset() // 獅子回起始站位、enter 登場動畫、清掉捕獸夾/爪擊
-    l.hp = keepHp // 但血量不回補(無縫=同一場戰鬥繼續)
-    l.deathMode = keepDeath // 死神模式維持
+    l.hp = rewindHp // 血量倒退回 30 秒前(reset 已設 maxHp,這裡覆寫)
+    l.deathMode = keepDeath
     s.invuln = SAMSON.reviveInvuln // 復活後一段無敵
     this.combo = 0
+    // 回歸後從這個血量重新計時(下次倒退以此為新基準)
+    this._clock = 0
+    this._hpLog = [{ t: 0, hp: rewindHp }]
+    this._hpLogTimer = 0
+  }
+
+  // 查「rewindSeconds 秒前」的獅子血量;歷史不足(開場未滿 30s)→ 用最舊樣本(通常=滿血)
+  _hpAtRewind() {
+    const target = this._clock - CORRUPTION.rewindSeconds
+    let hp = this._hpLog.length ? this._hpLog[0].hp : this.lion.hp
+    for (const e of this._hpLog) {
+      if (e.t <= target) hp = e.hp
+      else break
+    }
+    return Math.max(1, Math.min(LION.maxHp, hp)) // 夾在合理範圍,至少 1(避免一復活就 0 血收尾)
   }
 
   // 壞結局:黑霧 + 漆黑細手捏住心臟,演完進入壞結局畫面。演完後墮落清零(下一輪重新開始)。
