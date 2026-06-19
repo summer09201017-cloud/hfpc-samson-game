@@ -111,6 +111,15 @@ export const CORRUPTION = {
                      //   (Re:Zero 式;玩家損失這 30 秒的傷害進度 → 死亡有代價但不從頭)
 }
 
+// 金色的心(💛):場上稀有出現,撿到「突破血量上限」——maxHearts +1 且補 1 滴。
+export const GOLDEN_HEART = {
+  chancePerSec: 0.02, // 每秒出現機率(2%)
+  life: 7, // 沒撿走幾秒後消失(消失前閃爍)
+  r: 24, // 拾取半徑
+  maxOnField: 1, // 場上最多同時 1 個(稀有)
+  safeR: 90, // 不生在玩家腳下
+}
+
 // 開場短演出 / 撕裂收尾的長度(秒)
 export const INTRO = { duration: 2.6 }
 export const FINISHER = { duration: 2.4 }

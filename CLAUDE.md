@@ -36,6 +36,7 @@
 - **壞結局(地獄模式中再死一次)**:已在 `deathMode` 時 `gameOver()` 改走 `enterBadEnding()` → 新狀態 `STATE.BADENDING` 演出(`renderer._drawBadEnding`:黑霧聚攏 → 漆黑細手伸入捏住心臟[`_heart`]→ 全黑字幕,長度 `BADEND.duration`),演完顯示壞結局畫面(`ui.showBadEnding` + `scripture.js` 的 `LEVEL1.badEnd`,羅 6:23 指向基督的盼望),並把 `deaths/deathMode` 清零讓下一輪重新開始。象徵性、不血腥。
 - 反擊 `LION.maxHp`(目前 30)下 → 觸發「撕裂」收尾(`enterFinisher`),神的靈光暈 + 經文淡入 → 過關。
 - **蜂窩補血(`HONEY`)**:場上每隔 `spawnMin~spawnMax`(6~11s 隨機=不定時)出現一個 🍯 蜂窩(場上最多 `maxOnField`,`life` 秒沒吃會閃爍後消失,不生在玩家腳下 `safeR`)。走過去(`HONEY.r`)補 `heal`(1)滴血,**滿血則不吃、留在場上**。由 `game.honeys[]` 自管(`_stepHoney`/`_spawnHoney`),呼應士 14:8-9「從死獅之內取蜜」。
+- **金色的心(`GOLDEN_HEART`)**:場上每秒 `chancePerSec`(2%)機率出現一顆稀有 💛(場上最多 `maxOnField`=1,`life` 秒沒撿會閃爍消失)。撿到**突破血量上限**:`samson.maxHearts +1` 且補 1 滴。★ 因此血量上限改為**參孫實例狀態** `s.maxHearts`(reset 初始化為 `SAMSON.maxHearts`),HUD/`win` 都讀它;HUD 超過 8 顆改顯示「目前/上限」緊湊版避免爆版。死亡回歸**保留**突破後的上限(永久增益)。由 `game.golden[]` 自管(`_stepGolden`)。
 - **石頭反制(`ROCK`)**:場上不定時(`spawnMin~spawnMax`)出現灰石,玩家碰到(`ROCK.r`)→ 石頭自動**朝獅子扔出**(輕度追蹤確保命中)→ 砸中扣 `ROCK.damage`(1)血。由 `game.rocks[]`(`state:'ground'|'thrown'`)管理(`_stepRocks`),傷害走共用的 `_damageLion`(與反擊同一條路徑,含收尾與跨階段提示)。
 - 友善:參孫 `SAMSON.maxHearts`(目前 3)顆心、受擊無敵閃爍、**前 3 次死亡無縫復活**(見墮落系統)。神學訊息(力量出於神的靈)在標題/勝利/蜂蜜彩蛋帶出。HUD 血條顯示獅子血量**百分比**。
 - **美術(`renderer.js` + `styles.css`)**:背景 `_bgArena` = 環場葡萄園(藤架柱+拉線+葡萄串 `_grapes`)、競技場乾淨耕作壟地、石磚邊牆、全畫面暗角;HUD = 漸層血條(依 phase/死神換色、分段刻度)+ 心(滿/暗心顯示上限);標題/勝利/失敗 DOM 卡片(`styles.css`)= 羊皮紙質感+金色裝飾線+進場動畫+經文引號。純向量/CSS 漸層,零美術檔、離線安全。

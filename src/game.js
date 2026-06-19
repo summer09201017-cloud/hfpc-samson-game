@@ -1,4 +1,4 @@
-import { SAMSON, LION, HONEY, ROCK, MIRACLE, CORRUPTION, ARENA, INTRO, FINISHER, BADEND } from './config.js'
+import { SAMSON, LION, HONEY, ROCK, MIRACLE, CORRUPTION, GOLDEN_HEART, ARENA, INTRO, FINISHER, BADEND } from './config.js'
 import { Samson } from './samson.js'
 import { Lion } from './lion.js'
 import { Renderer } from './renderer.js'
@@ -57,6 +57,8 @@ export class Game {
     this.rocks = [] // 場上的石頭:{ x, y, t, state:'ground'|'thrown', dx, dy, spin }
     this._rockTimer = 0
     this._rockNext = ROCK.spawnMax
+    this.golden = [] // 場上的金色的心:{ x, y, t }(撿到突破血量上限)
+    this._goldenTimer = 0
     this._miracleTimer = 0 // 神蹟降臨倒數(每 MIRACLE.interval 秒一次)
 
     this.deaths = 0 // 本輪累積死亡數(回標題 / 得勝才清零)→ 畫面漸暗、滿 deathModeAt 進死神模式
@@ -145,6 +147,8 @@ export class Game {
     this.rocks = []
     this._rockTimer = 0
     this._rockNext = this._rollRockDelay()
+    this.golden = []
+    this._goldenTimer = 0
     this._miracleTimer = 0
     this._clock = 0
     this._hpLog = [{ t: 0, hp: this.lion.hp }]
@@ -199,6 +203,7 @@ export class Game {
     if (l.claw.state === 'strike' && prevClaw === 'warn') Audio.sfx('dodge') // 斬擊揮下的破風聲
 
     this._stepHoney(dt, s) // 蜂窩補血道具:老化 / 拾取 / 不定時生成
+    this._stepGolden(dt, s) // 金色的心:每秒 2% 機率出現,撿到突破血量上限
     if (this._stepRocks(dt, s, l)) return // 石頭:撿到→扔向獅子→砸中扣血(可能觸發收尾)
 
     // 神蹟降臨:每 MIRACLE.interval 秒(死神/地獄模式縮短為 deathInterval),天降閃電打獅子
@@ -353,6 +358,47 @@ export class Game {
       if (Math.hypot(x - s.x, y - s.y) >= HONEY.safeR) break
     }
     return { x, y, t: 0 }
+  }
+
+  // 金色的心:老化移除 → 撿到「突破血量上限」(maxHearts+1、補 1 滴)→ 每秒擲一次 2% 機率生成
+  _stepGolden(dt, s) {
+    if (this.golden.length) {
+      for (const h of this.golden) h.t += dt
+      this.golden = this.golden.filter((h) => h.t < GOLDEN_HEART.life)
+    }
+    const rr = GOLDEN_HEART.r + SAMSON.r
+    for (let i = 0; i < this.golden.length; i++) {
+      const h = this.golden[i]
+      if (Math.hypot(h.x - s.x, h.y - s.y) < rr) {
+        s.maxHearts += 1 // ★ 突破上限
+        s.hearts += 1
+        this.golden.splice(i, 1)
+        this.fx.healT = 0.6
+        this.fx.healX = s.x
+        this.fx.healY = s.y
+        Audio.sfx('heal')
+        break
+      }
+    }
+    // 每滿 1 秒,擲一次 chancePerSec 機率
+    this._goldenTimer += dt
+    if (this._goldenTimer >= 1) {
+      this._goldenTimer -= 1
+      if (this.golden.length < GOLDEN_HEART.maxOnField && Math.random() < GOLDEN_HEART.chancePerSec) {
+        const minX = ARENA.x + 34
+        const maxX = ARENA.x + ARENA.w - 34
+        const minY = ARENA.y + 34
+        const maxY = ARENA.y + ARENA.h - 34
+        let x = minX
+        let y = minY
+        for (let i = 0; i < 8; i++) {
+          x = minX + Math.random() * (maxX - minX)
+          y = minY + Math.random() * (maxY - minY)
+          if (Math.hypot(x - s.x, y - s.y) >= GOLDEN_HEART.safeR) break
+        }
+        this.golden.push({ x, y, t: 0 })
+      }
+    }
   }
 
   // 石頭:地上石頭老化/被撿(→扔出)、飛行石頭追向獅子並砸中扣血、不定時生成。
@@ -588,12 +634,16 @@ export class Game {
     const l = this.lion
     const rewindHp = this._hpAtRewind()
     const keepDeath = l.deathMode
+    const keepMax = s.maxHearts // 金色的心突破的上限是永久增益,死亡回歸不收回
     s.reset() // 參孫回起始站位、滿血、idle
     l.reset() // 獅子回起始站位、enter 登場動畫、清掉捕獸夾/爪擊
+    s.maxHearts = keepMax
+    s.hearts = keepMax // 復活補滿到(突破後的)上限
     l.hp = rewindHp // 血量倒退回 30 秒前(reset 已設 maxHp,這裡覆寫)
     l.deathMode = keepDeath
     s.invuln = SAMSON.reviveInvuln // 復活後一段無敵
     this.combo = 0
+    this.golden = [] // 清掉場上殘留的金心(站位已重置)
     // 回歸後從這個血量重新計時(下次倒退以此為新基準)
     this._clock = 0
     this._hpLog = [{ t: 0, hp: rewindHp }]

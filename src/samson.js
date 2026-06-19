@@ -12,7 +12,8 @@ export class Samson {
   reset() {
     this.x = ARENA.x + 130
     this.y = ARENA.y + ARENA.h / 2
-    this.hearts = SAMSON.maxHearts
+    this.maxHearts = SAMSON.maxHearts // 目前血量上限(可被金色的心突破而提高)
+    this.hearts = this.maxHearts
     this.invuln = 0
     this.face = 1 // -1 朝左 / 1 朝右(畫圖用)
     this.moving = false

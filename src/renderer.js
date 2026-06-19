@@ -1,4 +1,4 @@
-import { VIEW, ARENA, SAMSON, LION, HONEY, ROCK, CORRUPTION, INTRO, FINISHER, BADEND } from './config.js'
+import { VIEW, ARENA, SAMSON, LION, HONEY, ROCK, CORRUPTION, GOLDEN_HEART, INTRO, FINISHER, BADEND } from './config.js'
 
 // 俯視角(3/4 視角)繪製:地面是一塊俯視的競技場,角色是站立的小人/小獅,
 // 用 y 座標排序前後、腳下加陰影做出在地面走動的感覺。背景與角色全用 Canvas 向量
@@ -258,6 +258,34 @@ export class Renderer {
       ctx.fill()
       this._emoji('🍯', h.x, cy, 36, 'middle')
       this._emoji('❤️', h.x + 15, cy - 16, 17, 'middle')
+    }
+
+    // 金色的心(💛):稀有,撿到突破血量上限。比蜂窩更閃耀的金光暈 + 旋轉星芒 + 💛 + ✨。
+    for (const h of game.golden || []) {
+      if (h.t > GOLDEN_HEART.life - 1.5 && Math.floor(h.t * 8) % 2 === 0) continue // 快消失:閃爍
+      const cy = h.y + Math.sin(t * 3 + h.x * 0.05) * 4
+      const pulse = 0.7 + 0.3 * Math.abs(Math.sin(t * 4))
+      const glow = ctx.createRadialGradient(h.x, cy, 2, h.x, cy, (GOLDEN_HEART.r + 16) * pulse)
+      glow.addColorStop(0, 'rgba(255,215,70,0.85)')
+      glow.addColorStop(0.6, 'rgba(255,196,40,0.35)')
+      glow.addColorStop(1, 'rgba(255,196,40,0)')
+      ctx.fillStyle = glow
+      ctx.beginPath()
+      ctx.arc(h.x, cy, (GOLDEN_HEART.r + 16) * pulse, 0, Math.PI * 2)
+      ctx.fill()
+      // 旋轉星芒
+      ctx.strokeStyle = `rgba(255,240,170,${0.5 * pulse})`
+      ctx.lineWidth = 2
+      ctx.lineCap = 'round'
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + t * 1.2
+        ctx.beginPath()
+        ctx.moveTo(h.x + Math.cos(a) * 16, cy + Math.sin(a) * 16)
+        ctx.lineTo(h.x + Math.cos(a) * 26, cy + Math.sin(a) * 26)
+        ctx.stroke()
+      }
+      this._emoji('💛', h.x, cy, 34, 'middle')
+      this._emoji('✨', h.x + 16, cy - 15, 16, 'middle')
     }
 
     // 最後狂暴:獅子腳下脈動紅光暈(暗示「所有攻擊加快」)
@@ -1485,21 +1513,35 @@ export class Renderer {
     const l = game.lion
     if (game.state !== 'fight' && game.state !== 'paused') return
 
-    // 心:滿格 ❤️、已失去的格用暗心墊底(看得出 目前/上限)。上限讀 SAMSON.maxHearts(唯一真相)
-    // 先墊一塊半透明深色圓底板,讓心在深色葡萄園背景上也醒目(與血條底板一致)
-    const plateW = (SAMSON.maxHearts - 1) * 36 + 42
-    ctx.fillStyle = 'rgba(20,12,4,0.5)'
-    roundRect(ctx, 13, 21, plateW, 34, 11)
-    ctx.fill()
-    for (let i = 0; i < SAMSON.maxHearts; i++) {
-      const hx = 34 + i * 36
-      if (i >= s.hearts) {
-        ctx.globalAlpha = 0.32
-        this._emoji('🖤', hx, 38, 28, 'middle')
-        ctx.globalAlpha = 1
-      } else {
-        this._emoji('❤️', hx, 38, 30, 'middle')
+    // 心:滿格 ❤️、已失去的格用暗心墊底(看得出 目前/上限)。上限讀 s.maxHearts(可被金心突破)
+    const maxH = s.maxHearts || SAMSON.maxHearts
+    if (maxH <= 8) {
+      // 一般:逐顆畫 + 半透明圓底板(深背景上醒目)
+      const plateW = (maxH - 1) * 36 + 42
+      ctx.fillStyle = 'rgba(20,12,4,0.5)'
+      roundRect(ctx, 13, 21, plateW, 34, 11)
+      ctx.fill()
+      for (let i = 0; i < maxH; i++) {
+        const hx = 34 + i * 36
+        if (i >= s.hearts) {
+          ctx.globalAlpha = 0.32
+          this._emoji('🖤', hx, 38, 28, 'middle')
+          ctx.globalAlpha = 1
+        } else {
+          this._emoji('❤️', hx, 38, 30, 'middle')
+        }
       }
+    } else {
+      // 突破很多顆 → 緊湊顯示:一顆 ❤️ + 「目前/上限」數字,避免爆版
+      ctx.fillStyle = 'rgba(20,12,4,0.5)'
+      roundRect(ctx, 13, 21, 118, 34, 11)
+      ctx.fill()
+      this._emoji('❤️', 34, 38, 30, 'middle')
+      ctx.fillStyle = '#ffd9d0'
+      ctx.font = `800 18px ${FONT}`
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(`${s.hearts} / ${maxH}`, 52, 39)
     }
 
     // boss 血條:外框 + 漸層填色 + 內高光 + 分段刻度
