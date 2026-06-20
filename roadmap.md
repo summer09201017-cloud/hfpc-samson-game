@@ -1,6 +1,6 @@
 # 參孫打獅子 — 開發路線圖(roadmap)
 
-> 更新:2026-06-18。核心關卡**已完整、已上線、可直接上課**;以下「待做」全是加值,非必要。
+> 更新:2026-06-20。核心關卡**已完整、已上線、可直接上課**;以下「待做」全是加值,非必要。
 > 排序原則:**CP 值(價值÷開發時間)由高到低**。⏱ 是粗估開發時間。先做「快贏」區。
 
 ---
@@ -16,6 +16,10 @@
 - ⚡ 神蹟降臨(`MIRACLE`,每 30s 天降閃電 -3 血;地獄模式縮 20s)· 😡 最後狂暴(hp≤3 全攻擊加速)。
 - 🦷 第二階段捕獸夾(hp<10,先警示再彈出)· 🩸 大範圍爪擊(hp≤15,紅線 3s 後斬擊)。
 - 🕯️ 墮落系統(`CORRUPTION`:每死漸暗;累積死 3 次→地獄/死神模式,得勝不清零)· 💀 壞結局(地獄中再死→黑霧+黑手捏心+震動演出,指向羅 6:23)。
+- 💛 金色的心(`GOLDEN_HEART`,每秒 2% 稀有出現,撿到突破血量上限 maxHearts+1;上限改 `s.maxHearts` 實例狀態)。
+- ⏳ 死亡回歸(Re:Zero 式):前三次死亡黑霧轉場後,獅子血量倒退回 `rewindSeconds`(30s)前(`_clock`+`_hpLog`+`_hpAtRewind`);保留死神/黑暗,站位重置、動畫不變。
+- 💥 打擊感:反擊命中 = 頓幀(`_hitStop`)+ 畫面震動(只搖世界層、連擊越強)+ 加大爆擊 + 獅子打退閃白 + 手機震動 + 三層打擊音。
+- 🎵 背景音樂:原創 A 小調情感曲(憂傷→推進,Web Audio 合成、零音檔)。
 - 數值:獅子 30 血、玩家 3 心、Shift 奔跑;`phaseOf` 按 30 重分。
 
 **美術(零美術檔,純向量 / CSS)**
@@ -61,19 +65,20 @@
 
 ## 🧰 待做 — 跨專案 Skill / 指令 / Agent / Hook / MCP
 
+> 合輯 repo `hfpc-claude-skills` 現有 **48 skill + 6 指令 + 4 agent + cuv MCP**(兩台 PC 共同推進)。以下只列與本遊戲直接相關者。
+
 | 狀態 | 項目 | 類型 | 用途 |
 | --- | --- | --- | --- |
 | ✅ | `add-to-collection` / `ship-game-online` | skill | 加大廳卡 / 一條龍上架 |
-| ✅ | `arena-pickups-hazards` / `boss-escalation` / `corruption-bad-ending` / `canvas-vector-characters` | skill | 本遊戲這幾輪機制與美術已抽成可重用 skill |
-| ✅ | `/sync-skills` / `/ship-check` | 指令 | 同步 skill 合輯 / 上線前體檢 |
-| ✅ | `bible-game-reviewer` | agent | 審關卡:和合本/兒童友善/神學語氣/文件對齊 |
-| ✅ | doc-sync(`.claude/settings.json`) | hook | 改玩法檔自動提醒同步文件(本專案專屬) |
-| 💡 | **和合本經文查詢 MCP** | MCP | ★ 最高價值:一個本地 MCP server 暴露 `lookup(書,章,節)` 回正確和合本經文 → 從根本杜絕經文寫錯(現在靠人工核對)。需先備妥可用的和合本文字來源(注意版權),屬中等工程,單獨開。 |
+| ✅ | `arena-pickups-hazards`(含金心)/ `boss-escalation` / `corruption-bad-ending` / `canvas-vector-characters` | skill | 本遊戲機制與美術已抽成可重用 skill |
+| ✅ | `hit-feel-juice` / `procedural-bgm` / `canvas-playwright-verify` | skill | 打擊感配方 / 零音檔作曲 / Playwright 實機截圖驗收 |
+| ✅ | **`cuv` 和合本經文查詢 MCP** | MCP | 本地 server,`lookup(書,章,節)` 回正確和合本(資料在 `~/.claude/cuv-data` 9 版本);杜絕經文寫錯。skill `cuv-scripture-mcp`。 |
+| ✅ | `web-speech-scripture` | skill | 朗讀和合本 + zh-TW fallback(快贏 #3 的底,已抽出) |
+| ✅ | `/sync-skills` / `/ship-check` / `/handoff` | 指令 | 同步 skill / 上線前體檢 / 交接一條龍 |
+| ✅ | `bible-game-reviewer` / `qa-playtester` / `difficulty-balancer` | agent | 審關卡 / 跑測試回報失敗 / headless 自我對戰校正難度 |
+| ✅ | `pre-push-guard`(hook)/ doc-sync(`.claude/settings.json`) | hook | push 前自動測試 / 改玩法檔提醒同步文件 |
 | 💡 | `game-difficulty-presets` | skill | 快贏 #1 做完抽出:難度選單↔config 對應 |
-| 💡 | `web-speech-scripture` | skill | 快贏 #3 做完抽出:朗讀和合本 + zh-TW fallback |
-| 💡 | `/new-bible-level` | 指令 | 由現有關卡骨架開新書卷/新關(scaffold) |
-| 💡 | `difficulty-balancer` | agent | headless 自我對戰跑數百場,回報「平均通關時間/死亡率」幫調 config |
-| 💡 | pre-push 測試 hook | hook | push 前自動 `npm test`,擋住壞版上線 |
+| 💡 | `death-rewind`(死亡回歸) | skill | 把「死亡倒退進度」抽成可重用機制(時鐘+血量歷史+回歸,Re:Zero 式) |
 
 ---
 

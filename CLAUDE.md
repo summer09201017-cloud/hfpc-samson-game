@@ -3,17 +3,19 @@
 單一動作關的聖經小遊戲:**參孫打獅子**(士師記 14:5-6)。純 vanilla ES modules + Canvas,
 零執行期相依、Web Audio 合成音效、可離線(PWA)。架構沿用「約拿闖關」引擎(arcade-game-kit)。
 
-## 現況(2026-06-18)— 已完成 vs 待做
+## 現況(2026-06-20)— 已完成 vs 待做
 
 **✅ 已完成、已上線**
-- 完整 boss 戰生態:走位閃避 + 蜂窩補血/石頭反制 + 神蹟閃電/最後狂暴 + 捕獸夾/大範圍爪擊 + 墮落/地獄(死神)模式 + 壞結局。`npm test` / `npm run test:offline` 全綠。
-- 美術全面升級(零美術檔):背景葡萄園、HUD 漸層血條/心、標題勝負羊皮紙卡片、向量參孫/獅子(3/4 透視)/黑手/煙/閃電。
+- 完整 boss 戰生態:走位閃避 + 蜂窩補血/石頭反制 + **金色的心(💛 突破血量上限)** + 神蹟閃電/最後狂暴 + 捕獸夾/大範圍爪擊 + 墮落/地獄(死神)模式 + 壞結局。`npm test` / `npm run test:offline` 全綠。
+- **死亡回歸(Re:Zero 式)**:前三次死亡黑霧轉場後,獅子血量倒退回 30 秒前(`CORRUPTION.rewindSeconds`),保留死神/黑暗;站位重置、動畫不變。
+- **打擊感(game feel)**:反擊命中 = 頓幀 + 畫面震動(只搖世界層、連擊越強)+ 加大爆擊 + 獅子打退閃白 + 手機震動 + 三層打擊音。
+- 美術全面升級(零美術檔):背景葡萄園、HUD 漸層血條/心(底板)、標題勝負羊皮紙卡片、向量參孫/獅子(3/4 透視)/黑手(霧感、固定根部伸長)/煙/閃電。背景音樂為**原創 A 小調情感曲**(Web Audio 合成、零音檔)。
 - **已部署**:https://hfpc-samson-game.netlify.app(資產 200 驗證)。**GitHub**:`summer09201017-cloud/hfpc-samson-game`(public)。
 - **已進大廳**:`hfpc-bible-games` 戰爭闖關合輯第 6 關,**PR #6 已 merge、線上大廳卡片已亮**。
-- 文件已對齊實作(本檔、README、roadmap、記憶);`.claude/settings.json` 有 doc-sync hook(改玩法檔自動提醒同步文件)。
-- **Skill 合輯一鍵跨機安裝**:私有 repo `hfpc-claude-skills`(31 skill + `/sync-skills`、`/ship-check` 指令 + `bible-game-reviewer` agent)。換機用 `/plugin` 或 `install.bat`。
+- 文件已對齊實作(本檔、README、roadmap、記憶);`.claude/settings.json` 有 doc-sync hook;`src/main.js` 有 localhost 偵錯掛點 `window.__game`(正式站不暴露)。
+- **Skill 合輯一鍵跨機安裝**:私有 repo `hfpc-claude-skills`(48 skill + `/sync-skills`、`/ship-check`、`/handoff` 等指令 + `bible-game-reviewer`、`qa-playtester` 等 agent + `cuv` 和合本經文 MCP)。換機用 `/plugin` 或 `install.bat`。
 
-**🔜 真正待做** → 細節與優先序見 **`roadmap.md`**(按 CP 值 × 開發時間排序)。一句話:核心已完整可上課;**唯一較急的是難度選單**(這輪堆了 30 血/3 心/地獄,對小小孩偏硬),其餘都是加值。
+**🔜 真正待做** → 細節與優先序見 **`roadmap.md`**(按 CP 值 × 開發時間排序)。一句話:核心已完整可上課;**唯一較急的是難度選單**(堆了 30 血/3 心/地獄/死亡回歸,對小小孩偏硬),其餘都是加值。
 
 **交接**:另一台 PC 接手請先讀 `讀我-HANDOFF.txt`(含「一鍵裝齊所有 skill」)。
 

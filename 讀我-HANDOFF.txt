@@ -61,26 +61,32 @@
   讀我-HANDOFF.txt  本檔
 
 
+本輪(2026-06-20)又新加的玩法:💛金色的心(突破血量上限)、⏳死亡回歸(前三次死亡
+  獅血倒退回 30 秒前)、💥打擊感(頓幀/震動/爆擊/手機震動)、🎵原創背景音樂。
+  (全部已 commit/push;細節見 CLAUDE.md「玩法核心」與 roadmap「已完成」。)
+
 下一步做什麼
 ------------
 打開 roadmap.md(已重整成「已完成 vs 待做」、按 CP 值排序)。一句話:核心已完整可上課。
-★ 唯一較急:這輪堆了很多硬機制(30 血+3 心+爪擊+捕獸夾+地獄模式),對小小孩偏難
+★ 唯一較急:堆了很多硬機制(30 血+3 心+爪擊+捕獸夾+地獄+死亡回歸),對小小孩偏難
   → 第 1 優先做「難度選單(易/中/難)」把兒童友善救回來。其餘都是加值。
 建議的「快贏」(高 CP 值、半天內):
-  1. 難度選單(易/中/難)→ 對應一組 config 值。★最該做。
+  1. 難度選單(易/中/難)→ 對應一組 config 值。★最該做(做完抽 skill game-difficulty-presets)。
   2. 過關星級評價(1–3★,依剩餘心數+combo)。
-  3. 勝利經文語音朗讀(Web Speech API,還不識字的孩子也能領受)。
-  4. 難度平衡校正:實際玩一輪,調 config(神蹟間隔/血量/捕獸夾頻率)。
+  3. 勝利經文語音朗讀:skill web-speech-scripture 已存在,直接接上即可。
+  4. 難度平衡校正:用 agent difficulty-balancer 跑 headless 自我對戰,或實玩一輪調 config。
 
-本輪新做的工具(隨 skill 合輯一起裝,見下方):
-  /ship-check          上課/部署前體檢(npm test + curl 驗證線上站)
-  /sync-skills         把本機 skill 同步進合輯 repo 並推送
-  bible-game-reviewer  agent:審一關能否放心給孩子(和合本/兒童友善/神學/文件對齊)
-  doc-sync hook        本 repo .claude/settings.json:改 src/*.js 玩法檔→提醒同步文件
+工具現況(隨 skill 合輯 hfpc-claude-skills 一起裝,見下方;repo 已達 48 skill/6 指令/4 agent):
+  /ship-check /sync-skills /handoff   上線體檢 / 同步 skill / 交接一條龍
+  bible-game-reviewer / qa-playtester / difficulty-balancer   審關卡 / 跑測試 / 校難度(agent)
+  doc-sync hook(本 repo) + pre-push-guard(hook,push 前自動測試)
+  本 repo src/main.js 有 localhost 偵錯掛點 window.__game(配 skill canvas-playwright-verify 截圖驗收)
 
-MCP(建議、未做):做一個「和合本經文查詢 MCP」server,暴露 lookup(書,章,節) 回正確經文,
-  從根本杜絕經文寫錯(目前靠人工核對)。需先備妥可用的和合本文字來源(留意版權),
-  屬中等工程,單獨開。詳見 roadmap.md「跨專案 Skill/指令/Agent/Hook/MCP」表。
+MCP(★已做好):「和合本經文查詢 cuv MCP」已可用——server 在 skill cuv-scripture-mcp,
+  資料在 ~/.claude/cuv-data(9 版本,unv 和合本等)。寫 scripture.js 經文前可 lookup(書,章,節)
+  取正確原文比對,杜絕經文寫錯。agape250 這台若沒接,在該機跑:
+    claude mcp add cuv --scope user -e CUV_DATA_DIR=<該機cuv-data路徑> -- node <該機skill>/cuv-scripture-mcp/server/cuv-mcp.mjs
+  (★ MCP 一律 --scope user 才跨專案;別漏。詳見記憶 mcp-scope-lesson。)
 
 
 跨專案 Skills:一鍵裝齊全部(★ 換機必看)
