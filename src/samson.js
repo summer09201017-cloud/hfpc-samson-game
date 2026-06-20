@@ -53,7 +53,8 @@ export class Samson {
   }
 
   // mvx, mvy:輸入的移動向量(已大致正規化,長度 0..1);running:按住 Shift 奔跑
-  update(dt, mvx, mvy, running = false) {
+  //   exitGap:{w,h} 右下角的缺口大小(可走出場外);null = 四牆封閉(嵌入模式)
+  update(dt, mvx, mvy, running = false, exitGap = null) {
     if (this.invuln > 0) this.invuln -= dt
     if (this.cooldown > 0) this.cooldown -= dt
 
@@ -79,7 +80,7 @@ export class Samson {
       this.y += vy * SAMSON.speed * runMul * dt
       this.walkPhase += dt * len * 11 * runMul // 奔跑時腿擺動也加快
       this.running = runMul > 1 // 給 renderer 用(可畫奔跑特效)
-      this._clamp()
+      this._clamp(exitGap)
     }
 
     if (this.action === 'attack') {
@@ -91,8 +92,19 @@ export class Samson {
     }
   }
 
-  _clamp() {
-    this.x = Math.max(ARENA.x + SAMSON.r, Math.min(ARENA.x + ARENA.w - SAMSON.r, this.x))
-    this.y = Math.max(ARENA.y + SAMSON.r, Math.min(ARENA.y + ARENA.h - SAMSON.r, this.y))
+  _clamp(exitGap = null) {
+    const r = SAMSON.r
+    const minX = ARENA.x + r
+    const maxX = ARENA.x + ARENA.w - r
+    const minY = ARENA.y + r
+    const maxY = ARENA.y + ARENA.h - r
+    // 左、上牆永遠擋住
+    if (this.x < minX) this.x = minX
+    if (this.y < minY) this.y = minY
+    // 右下角缺口:在開口帶內就「不擋」那道牆,讓玩家走出場外(觸發隱藏結局由 game 偵測)
+    const rightOpen = exitGap && this.y > ARENA.y + ARENA.h - exitGap.h // 靠底 → 右牆開
+    const bottomOpen = exitGap && this.x > ARENA.x + ARENA.w - exitGap.w // 靠右 → 底牆開
+    if (!rightOpen && this.x > maxX) this.x = maxX
+    if (!bottomOpen && this.y > maxY) this.y = maxY
   }
 }

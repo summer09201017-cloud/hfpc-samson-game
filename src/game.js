@@ -150,7 +150,6 @@ export class Game {
     this._rockNext = this._rollRockDelay()
     this.golden = []
     this._goldenTimer = 0
-    this._escapeDwell = 0
     this._miracleTimer = 0
     this._clock = 0
     this._hpLog = [{ t: 0, hp: this.lion.hp }]
@@ -195,19 +194,13 @@ export class Game {
 
     const prevLionState = l.state
     const prevClaw = l.claw.state
-    s.update(dt, mv.x, mv.y, running)
+    // 右下角牆有缺口(非嵌入時),參孫可從那裡走出場外;走出邊界 → 隱藏結局
+    s.update(dt, mv.x, mv.y, running, this.embed ? null : { w: ESCAPE.w, h: ESCAPE.h })
     l.update(dt, s)
 
-    // 隱藏結局:在場地右下角「隱形逃跑出口」刻意停留 dwell 秒才觸發(滑過/閃避不會誤觸;嵌入模式不觸發)
-    if (!this.embed) {
-      const ex = ARENA.x + ARENA.w - ESCAPE.w
-      const ey = ARENA.y + ARENA.h - ESCAPE.h
-      if (s.x >= ex && s.y >= ey) {
-        this._escapeDwell = (this._escapeDwell || 0) + dt
-        if (this._escapeDwell >= ESCAPE.dwell) return this.enterEscape()
-      } else {
-        this._escapeDwell = 0 // 一離開角落就歸零 → 必須連續停留
-      }
+    // 隱藏結局:參孫中心越過右牆或底牆(已走出戰鬥範圍)→ 逃跑彩蛋
+    if (!this.embed && (s.x > ARENA.x + ARENA.w || s.y > ARENA.y + ARENA.h)) {
+      return this.enterEscape()
     }
 
     if (l.state === 'telegraph' && prevLionState !== 'telegraph') {
