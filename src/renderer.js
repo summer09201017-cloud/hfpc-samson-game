@@ -964,39 +964,28 @@ export class Renderer {
     ctx.fillStyle = inner
     ctx.fillRect(A.x, A.y, A.w, 40)
 
-    // 石磚邊牆(分段磚塊 + 內外描邊);右下角留一道缺口(逃跑出口)
+    // 石磚邊牆(分段磚塊 + 內外描邊)。※ 右下角雖有隱藏逃跑缺口(clamp 放寬),
+    //   但牆「照常畫完整」→ 出口隱藏、看不出來(玩家要自己摸到右下角才發現走得出去)。
     ctx.fillStyle = '#7a5128'
     const bw = 12
-    const gapW = ESCAPE.w // 底牆右端缺口寬
-    const gapH = ESCAPE.h // 右牆底端缺口高
-    ctx.fillRect(A.x - bw, A.y - bw, A.w + bw * 2, bw) // 上(完整)
-    ctx.fillRect(A.x - bw, A.y - bw, bw, A.h + bw * 2) // 左(完整)
-    ctx.fillRect(A.x - bw, A.y + A.h, A.w + bw - gapW, bw) // 下(右端斷開 gapW)
-    ctx.fillRect(A.x + A.w, A.y - bw, bw, A.h + bw - gapH) // 右(底端斷開 gapH)
-    // 磚縫
+    ctx.fillRect(A.x - bw, A.y - bw, A.w + bw * 2, bw) // 上
+    ctx.fillRect(A.x - bw, A.y + A.h, A.w + bw * 2, bw) // 下
+    ctx.fillRect(A.x - bw, A.y - bw, bw, A.h + bw * 2) // 左
+    ctx.fillRect(A.x + A.w, A.y - bw, bw, A.h + bw * 2) // 右
+    // 磚縫(沿上下邊每隔一段一條淺線)
     ctx.strokeStyle = 'rgba(40,26,10,0.5)'
     ctx.lineWidth = 1.5
-    for (let x = A.x - bw; x < A.x + A.w - gapW; x += 26) {
+    for (let x = A.x - bw; x < A.x + A.w + bw; x += 26) {
       ctx.beginPath()
+      ctx.moveTo(x, A.y - bw)
+      ctx.lineTo(x, A.y)
       ctx.moveTo(x + 13, A.y + A.h)
       ctx.lineTo(x + 13, A.y + A.h + bw)
       ctx.stroke()
     }
-    // 內框亮線:分四段,底/右避開缺口
     ctx.strokeStyle = '#a8743c'
     ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.moveTo(A.x - 1, A.y - 1)
-    ctx.lineTo(A.x + A.w + 1, A.y - 1) // 上
-    ctx.lineTo(A.x + A.w + 1, A.y + A.h - gapH) // 右(到缺口)
-    ctx.moveTo(A.x - 1, A.y - 1)
-    ctx.lineTo(A.x - 1, A.y + A.h + 1) // 左
-    ctx.lineTo(A.x + A.w - gapW, A.y + A.h + 1) // 下(到缺口)
-    ctx.stroke()
-    // 缺口兩側的門柱端點(暗示「這裡是開口」)
-    ctx.fillStyle = '#5e3c18'
-    ctx.fillRect(A.x + A.w - gapW - 3, A.y + A.h, 5, bw)
-    ctx.fillRect(A.x + A.w, A.y + A.h - gapH - 3, bw, 5)
+    ctx.strokeRect(A.x - 1, A.y - 1, A.w + 2, A.h + 2)
 
     // 全畫面暗角(vignette),把視線收向中央
     const vg = ctx.createRadialGradient(VIEW.W / 2, VIEW.H / 2, VIEW.H * 0.34, VIEW.W / 2, VIEW.H / 2, VIEW.W * 0.62)

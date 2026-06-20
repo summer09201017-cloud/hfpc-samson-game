@@ -198,8 +198,8 @@ export class Game {
     s.update(dt, mv.x, mv.y, running, this.embed ? null : { w: ESCAPE.w, h: ESCAPE.h })
     l.update(dt, s)
 
-    // 隱藏結局:參孫中心越過右牆或底牆(已走出戰鬥範圍)→ 逃跑彩蛋
-    if (!this.embed && (s.x > ARENA.x + ARENA.w || s.y > ARENA.y + ARENA.h)) {
+    // 隱藏結局:參孫從右下角缺口走出戰鬥範圍、再走遠 ESCAPE.out 像素 → 逃跑彩蛋
+    if (!this.embed && (s.x > ARENA.x + ARENA.w + ESCAPE.out || s.y > ARENA.y + ARENA.h + ESCAPE.out)) {
       return this.enterEscape()
     }
 

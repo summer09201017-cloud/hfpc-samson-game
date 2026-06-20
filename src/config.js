@@ -120,9 +120,10 @@ export const GOLDEN_HEART = {
   safeR: 90, // 不生在玩家腳下
 }
 
-// 隱藏結局:場地右下角牆上的「缺口」——參孫可從這裡走出競技場(走出邊界 → 逃跑結局)。
-//   w = 底牆缺口寬、h = 右牆缺口高(相對 ARENA 右下角);renderer 會把這段牆畫成開口。
-export const ESCAPE = { w: 64, h: 56 }
+// 隱藏結局:場地右下角的「隱藏出口」——牆照常畫(看不出缺口),但 clamp 在這角落放寬,
+//   參孫可從右下角走出競技場;走出去再多走 out 像素(走遠一點)才觸發逃跑結局。
+//   w = 底牆缺口帶寬、h = 右牆缺口帶高(相對 ARENA 右下角);out = 越界後還要走多遠才觸發。
+export const ESCAPE = { w: 64, h: 56, out: 70 }
 
 // 開場短演出 / 撕裂收尾的長度(秒)
 export const INTRO = { duration: 2.6 }
