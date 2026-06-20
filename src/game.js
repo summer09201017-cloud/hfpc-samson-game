@@ -325,12 +325,12 @@ export class Game {
       for (const h of this.honeys) h.t += dt
       this.honeys = this.honeys.filter((h) => h.t < HONEY.life)
     }
-    if (s.hearts < SAMSON.maxHearts) {
+    if (s.hearts < s.maxHearts) {
       const rr = HONEY.r + SAMSON.r
       for (let i = 0; i < this.honeys.length; i++) {
         const h = this.honeys[i]
         if (Math.hypot(h.x - s.x, h.y - s.y) < rr) {
-          s.hearts = Math.min(SAMSON.maxHearts, s.hearts + HONEY.heal)
+          s.hearts = Math.min(s.maxHearts, s.hearts + HONEY.heal)
           this.honeys.splice(i, 1)
           this.fx.healT = 0.6
           this.fx.healX = s.x
