@@ -1,4 +1,4 @@
-import { SAMSON, LION, HONEY, ROCK, MIRACLE, CORRUPTION, GOLDEN_HEART, ARENA, INTRO, FINISHER, BADEND } from './config.js'
+import { SAMSON, LION, HONEY, ROCK, MIRACLE, CORRUPTION, GOLDEN_HEART, ESCAPE, ARENA, INTRO, FINISHER, BADEND } from './config.js'
 import { Samson } from './samson.js'
 import { Lion } from './lion.js'
 import { Renderer } from './renderer.js'
@@ -15,6 +15,7 @@ const STATE = {
   BADENDING: 'badending', // 壞結局演出:黑霧 + 漆黑細手捏心臟(地獄模式中死亡,玩家不操控)
   WIN: 'win',
   LOSE: 'lose',
+  ESCAPED: 'escaped', // 隱藏結局:走到右下角隱形出口逃跑(彩蛋)
   PAUSED: 'paused',
 }
 const STEP = 1 / 60 // 固定時間步長,讓物理在任何更新率下都一致
@@ -195,6 +196,13 @@ export class Game {
     const prevClaw = l.claw.state
     s.update(dt, mv.x, mv.y, running)
     l.update(dt, s)
+
+    // 隱藏結局:走到場地右下角的「隱形逃跑出口」→ 逃跑彩蛋(嵌入模式不觸發,維持單純過/敗)
+    if (!this.embed) {
+      const ex = ARENA.x + ARENA.w - ESCAPE.w
+      const ey = ARENA.y + ARENA.h - ESCAPE.h
+      if (s.x >= ex && s.y >= ey) return this.enterEscape()
+    }
 
     if (l.state === 'telegraph' && prevLionState !== 'telegraph') {
       Audio.sfx('roar', { big: l.phase() > 0 })
@@ -585,6 +593,18 @@ export class Game {
     this.ui.showPauseButton()
     this.state = STATE.FIGHT
     Audio.resumeAll()
+  }
+
+  // 隱藏結局:走到右下角隱形出口逃跑(彩蛋)。不算過關也不算失敗,清掉墮落、回到可重玩。
+  enterEscape() {
+    this.state = STATE.ESCAPED
+    this.ui.hidePauseButton()
+    Audio.stopMusic()
+    Audio.sfx('dodge') // 溜走的氣聲
+    this.deaths = 0
+    this.deathMode = false
+    if (this.embed) return this._finish(false)
+    this.ui.showEscape(LEVEL1)
   }
 
   win() {

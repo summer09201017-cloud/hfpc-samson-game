@@ -120,6 +120,10 @@ export const GOLDEN_HEART = {
   safeR: 90, // 不生在玩家腳下
 }
 
+// 隱藏結局:場地最右下角的「隱形逃跑出口」(不繪製任何提示);玩家走進這塊矩形 → 觸發逃跑結局。
+//   座標相對 ARENA 右下角;w/h = 熱區大小。
+export const ESCAPE = { w: 70, h: 60 }
+
 // 開場短演出 / 撕裂收尾的長度(秒)
 export const INTRO = { duration: 2.6 }
 export const FINISHER = { duration: 2.4 }

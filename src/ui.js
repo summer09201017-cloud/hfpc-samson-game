@@ -139,6 +139,19 @@ export class UI {
     `)
   }
 
+  // 隱藏結局:走到右下角隱形出口逃跑(彩蛋)
+  showEscape(L) {
+    const e = L.escape || { head: '逃跑成功', body: '你溜走了。' }
+    this.show(`
+      <div class="kicker">${e.head}</div>
+      <p class="body" style="text-align:center">${e.body.replace(/\n/g, '<br>')}</p>
+      <div class="row">
+        <button class="btn" data-act="restart">↻ 回去面對獅子</button>
+        <button class="btn ghost" data-act="home">🏠 回標題</button>
+      </div>
+    `)
+  }
+
   showPaused() {
     this.show(`
       <div class="kicker">⏸ 暫停</div>
