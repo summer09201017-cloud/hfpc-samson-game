@@ -5,6 +5,7 @@ import { Renderer } from './renderer.js'
 import { Input } from './input.js'
 import { Audio } from './audio.js'
 import { LEVEL1 } from './scripture.js'
+import { initSpeech, speakScripture, stopSpeech } from './speak.js'
 
 const STATE = {
   TITLE: 'title',
@@ -72,6 +73,7 @@ export class Game {
   }
 
   boot() {
+    initSpeech()
     this.input.attach(this.canvas)
     this.renderer.resize()
     this._onResize = () => this.renderer.resize()
@@ -607,6 +609,7 @@ export class Game {
   }
 
   win() {
+    speakScripture(LEVEL1.verse)
     this.state = STATE.WIN
     this.ui.hidePauseButton()
     Audio.stopMusic()
@@ -711,6 +714,7 @@ export class Game {
   }
 
   destroy() {
+    stopSpeech()
     this.stopped = true
     if (this._onResize) window.removeEventListener('resize', this._onResize)
     if (this.input && this.input.detach) this.input.detach()
