@@ -609,7 +609,7 @@ export class Game {
   }
 
   win() {
-    speakScripture(LEVEL1.verse)
+    speakScripture(LEVEL1.verse, { ref: LEVEL1.ref })
     this.state = STATE.WIN
     this.ui.hidePauseButton()
     Audio.stopMusic()
@@ -629,7 +629,7 @@ export class Game {
     // 嵌入模式:沒有「無縫復活/劇情」的空間,維持原本回呼
     if (this.embed) {
       if (this.deaths >= CORRUPTION.deathModeAt) this.deathMode = true
-      speakScripture(LEVEL1.verse)   // 失敗也朗讀經文(力量出於神的靈,不是出於完美)
+      speakScripture(LEVEL1.verse, { ref: LEVEL1.ref })   // 失敗也朗讀經文(力量出於神的靈,不是出於完美)
       return this._finish(false)
     }
 
@@ -689,7 +689,7 @@ export class Game {
     this.ui.hidePauseButton()
     Audio.stopMusic()
     Audio.sfx('lose')
-    speakScripture(LEVEL1.verse)   // 壞結局也朗讀經文(指向救贖的盼望)
+    speakScripture(LEVEL1.verse, { ref: LEVEL1.ref })   // 壞結局也朗讀經文(指向救贖的盼望)
     if (this.embed) {
       this.deaths = 0
       this.deathMode = false
