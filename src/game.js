@@ -159,6 +159,7 @@ export class Game {
     this.acc = 0
     this.lion.deathMode = this.deathMode // 死神模式:獅子全面強化(見 lion.cfg / renderer)
     this.state = STATE.FIGHT
+    window.psPing?.('samson-start'); this._psT0 = Date.now()
     this.hudLabels = this._hudOverride || {
       ...LEVEL1.hud,
       ...(this.deathMode && LEVEL1.deathHud ? LEVEL1.deathHud : {}),
@@ -611,6 +612,7 @@ export class Game {
   win() {
     speakScripture(LEVEL1.verse, { ref: LEVEL1.ref })
     this.state = STATE.WIN
+    window.psPing?.('samson-done', this._psT0 ? Math.round((Date.now() - this._psT0) / 1000) : 0)
     this.ui.hidePauseButton()
     Audio.stopMusic()
     Audio.sfx('win')
