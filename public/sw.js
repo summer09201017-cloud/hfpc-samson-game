@@ -3,7 +3,7 @@
 // 順手更新快取;離線時才退回快取。這樣改版不會被舊快取黏住。
 // 改版時把 CACHE 版本號 +1,舊快取會在啟用時自動清除。
 
-const CACHE = 'samson-v3'
+const CACHE = 'samson-v4'
 // 預快取「整個 app shell」(HTML + CSS + 全部 ES 模組 + 圖示),安裝後馬上離線也能玩。
 // ⚠ 新增 src/ 模組時,記得把它加進這份清單(npm run test:offline 會檢查)。
 const CORE = [
@@ -72,3 +72,8 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(req))
   )
 })
+
+// 🏷️ 版號回報(0831 VT1 批次):頁尾徽章問「實際執行中的版本」,答案=本 SW 的快取名。
+self.addEventListener('message', function (e) {
+  if (e && e.data === 'GET_VERSION' && e.source) e.source.postMessage({ type: 'SW_VERSION', v: CACHE });
+});
