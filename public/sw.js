@@ -3,12 +3,11 @@
 // 順手更新快取;離線時才退回快取。這樣改版不會被舊快取黏住。
 // 改版時把 CACHE 版本號 +1,舊快取會在啟用時自動清除。
 
-const CACHE = 'samson-v4'
+const CACHE = 'samson-v5'
 // 預快取「整個 app shell」(HTML + CSS + 全部 ES 模組 + 圖示),安裝後馬上離線也能玩。
 // ⚠ 新增 src/ 模組時,記得把它加進這份清單(npm run test:offline 會檢查)。
 const CORE = [
   '/',
-  '/index.html',
   '/styles.css',
   '/src/main.js',
   '/src/game.js',
@@ -29,7 +28,7 @@ const CORE = [
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE).catch(() => {})))
+  event.waitUntil(caches.open(CACHE).then((c) => Promise.all(CORE.map((u) => c.add(u).catch(() => null))).catch(() => {})))
 })
 
 self.addEventListener('activate', (event) => {
@@ -52,10 +51,11 @@ self.addEventListener('fetch', (event) => {
       fetch(req)
         .then((res) => {
           const copy = res.clone()
-          caches.open(CACHE).then((c) => c.put('/index.html', copy))
+          // 0914:只存「沒被 308 轉址」的殼層到 '/'(存 redirected 回應再拿去回導覽會 ERR_FAILED)
+          if (res.ok && !res.redirected) caches.open(CACHE).then((c) => c.put('/', copy)).catch(() => {})
           return res
         })
-        .catch(() => caches.match('/index.html').then((r) => r || caches.match('/')))
+        .catch(() => caches.match('/'))
     )
     return
   }

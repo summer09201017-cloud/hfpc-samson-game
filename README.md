@@ -64,7 +64,12 @@
 
 ## 離線 / 安裝到平板
 
-`npm run build` 會產生 `site/`,可上傳到任何靜態主機(Netlify…)。裝成 PWA 後可離線玩,
+`npm run build` 會產生 `site/`,可上傳到任何靜態主機(Netlify…)。
+⚠ 0817 起正式站是 Cloudflare Pages `hfpc-samson-game.pages.dev`(Netlify 只剩 301 轉址):
+`npm run build` 後 `npx wrangler pages deploy site --project-name hfpc-samson-game --branch main`(部署 site/,不要部署根目錄——會把 .git 送上 CDN)。
+2026-09-14 SW 拔 index.html 地雷(v4→v5):CF Pages 把 /index.html 308 到 /,CORE 放 '/index.html' 會快取到 redirected 回應,裝成 App 再開就 ERR_FAILED
+(3D-Chess 實錘)。CORE 只留 '/',導覽退路改 caches.match('/'),線上導覽只在 res.ok && !redirected 時存到 '/',addAll 改逐一 add+catch。
+補丁來源:hfpc-claude-skills static-pwa-ship/patches/patch-sw-index.mjs;線上重演 scripts/check-sw-nav-fleet.mjs。裝成 PWA 後可離線玩,
 適合教室沒網路的場合(建議裝好後先線上完整玩一輪,讓資源都快取下來)。
 
 ## 接手 / 換機開發(給工程師 / 另一台 PC 的 AI)
