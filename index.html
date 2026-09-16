@@ -23,6 +23,9 @@
   <body>
     <div id="stage">
       <canvas id="game"></canvas>
+      <!-- 🏷 改版簡歷(VT2 0916):彈窗本體在本檔下面徽章那一段;這顆只負責打開它。
+           用站自己的 .icon-btn 樣式,排在靜音鈕左邊,不另做一套浮動鈕。 -->
+      <button id="appVerOpen" class="icon-btn ver-btn" aria-label="改版簡歷" title="改版簡歷・看看前幾版做了什麼">🏷️</button>
       <button id="muteBtn" class="icon-btn mute-btn" aria-label="靜音" title="靜音 (M)">🔊</button>
       <button id="pauseBtn" class="icon-btn pause-btn" aria-label="暫停" title="暫停 (P)">⏸</button>
       <div id="overlay" class="overlay">
@@ -174,6 +177,87 @@
 })();
 </script>
 <div id="appVerBadge" style="position:fixed;right:6px;bottom:4px;font-size:11px;line-height:1;opacity:.55;z-index:2147483000;pointer-events:none;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9);font-family:system-ui,sans-serif"></div>
+<!-- 🏷 改版簡歷(VT2 2026-09-16 補齊 game-must-haves ⑦ 的下半件)。
+     徽章只回答「我開到哪一版」,這一份回答「每一版做了什麼」——寫給家長與老師看。
+     ★ 徽章維持 pointer-events:none(標籤不是按鈕);簡歷從選單那顆鈕開。
+     ★ 改版時在 APP_VERSIONS 最前面插一筆就好。 -->
+<style>#appVerSheet[hidden]{display:none!important}</style>
+<div id="appVerSheet" hidden style="position:fixed;inset:0;z-index:2147483001;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,'Noto Sans TC',sans-serif">
+  <div style="max-width:460px;width:100%;max-height:72vh;overflow-y:auto;background:#101a33;border:1px solid #33407a;border-radius:12px;padding:16px 18px;color:#e8ecff;box-shadow:0 18px 50px rgba(0,0,0,.45)">
+    <h3 style="margin:0 0 4px;font-size:16px">🏷️ 改版簡歷</h3>
+    <p style="margin:0 0 10px;font-size:12px;line-height:1.6;color:#a9b4e0">每一版新增了什麼,白話寫給家長與老師看。前幾版都列在下面,最新的在最上面。</p>
+    <ol id="appVerList" style="margin:0;padding-left:18px;font-size:13px;line-height:1.85"></ol>
+    <button type="button" id="appVerClose" style="margin-top:14px;width:100%;min-height:44px;font:inherit;color:#e8ecff;background:#2a356b;border:1px solid #3a4a8b;border-radius:8px;cursor:pointer">關閉</button>
+  </div>
+</div>
+<script>
+(function () {
+  // 最新的放最前面。改版只要在這裡插一筆。
+  var APP_VERSIONS = [
+    {
+      "v": "v6",
+      "d": "2026-09-16",
+      "t": "畫面右上角多一顆 🏷️ 鈕,點開就看得到每一版做了什麼。以前右下角只看得到版本號,卻看不到那一版新增了什麼。"
+    },
+    {
+      "v": "v5",
+      "d": "2026-09-14",
+      "t": "修好一個「把遊戲裝成 App 之後打開是錯誤畫面」的毛病(離線存檔的首頁存錯了鍵)。這是整個系列一起修的同一種病。"
+    },
+    {
+      "v": "v4",
+      "d": "2026-08-31",
+      "t": "畫面右下角開始顯示版本號,回報問題時對得上是哪一版。"
+    },
+    {
+      "v": "v3",
+      "d": "2026-08-17",
+      "t": "搬到新的主機(舊網址會自動轉過來),載入更快;遊玩次數的統計在新舊網址都算得到。"
+    },
+    {
+      "v": "v2",
+      "d": "2026-07-26",
+      "t": "加上「← 返回大廳」鈕,孩子玩完可以自己回到大廳,不用按瀏覽器的上一頁;背景音樂改成整個系列共用的百曲庫,每一站、每一關配到的曲子都不一樣。"
+    },
+    {
+      "v": "v1 收尾",
+      "d": "2026-06-22",
+      "t": "過關、失敗、壞結局三種收場都會朗讀經文,並且唸出出處(士師記 14:5-6)——讓孩子聽見的是「耶和華的靈大大感動參孫」,不是打贏了很威風。"
+    },
+    {
+      "v": "v1",
+      "d": "2026-06-20",
+      "t": "參孫打獅子(士師記 14 章)上線。設計上刻意留了幾條路給不同的孩子:💛 金色的心可以突破血量上限、蜂窩可以補血;前三次死掉會無縫復活,而且獅子的血會倒退回三十秒前(不會愈打愈絕望);右下角牆上有一個隱形的缺口,刻意停在那裡 1.2 秒就走得出去——那是「逃跑雖可恥但有用」的隱藏結局。另外也有一個壞結局:黑霧裡伸出一隻黑手抓走參孫的心。"
+    }
+  ];
+  var sheet = document.getElementById('appVerSheet');
+  var list = document.getElementById('appVerList');
+  var closeBtn = document.getElementById('appVerClose');
+  if (!sheet || !list || !closeBtn) return;
+  var esc = function (x) {
+    return String(x).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; });
+  };
+  list.innerHTML = APP_VERSIONS.map(function (r) {
+    return '<li style="margin-bottom:.5em"><b>' + esc(r.v) + '</b>(' + esc(r.d) + '):' + esc(r.t) + '</li>';
+  }).join('');
+  function openSheet() { sheet.hidden = false; }
+  function shutSheet() { sheet.hidden = true; }
+  window.__openVersionSheet = openSheet;
+  window.__appVersion = APP_VERSIONS[0].v + '(' + APP_VERSIONS[0].d + ')';
+  // ★ 開簡歷那顆鈕**不一定在本段程式之前**就被解析完(--trigger=fixed 的 anchor 常在徽章後面)。
+  //   直接 getElementById 會拿到 null,鈕就變成按了沒反應——而且靜態檢查全綠、截圖也看不出來。
+  //   ⇒ 還在解析中就等 DOMContentLoaded 再綁。
+  function bindOpener() {
+    var b = document.getElementById('appVerOpen');
+    if (b) b.addEventListener('click', openSheet);
+  }
+  if (document.readyState === 'loading') addEventListener('DOMContentLoaded', bindOpener);
+  else bindOpener();
+  closeBtn.addEventListener('click', shutSheet);
+  sheet.addEventListener('click', function (e) { if (e.target === sheet) shutSheet(); });
+  addEventListener('keydown', function (e) { if (e.key === 'Escape' && !sheet.hidden) shutSheet(); });
+})();
+</script>
     <script>
       /* 🏷️ appVerBadgeFade（0828）：版號徽章是 position:fixed 在右下角，實測會蓋住大廳卡片、
          遊戲的「難度 / 開始比賽」按鈕——pointer-events:none 只讓「點擊」穿過去，字還是被蓋著。
