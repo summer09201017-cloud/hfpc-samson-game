@@ -9,3 +9,8 @@ site/
 # Playwright 驗收產物(不入庫;只忽略 repo 根目錄的截圖,不碰 public/icons)
 .playwright-mcp/
 /*.png
+
+# 本機產物(每台機內容不同,不可進版控)
+.wrangler/
+dist/
+.netlify/
